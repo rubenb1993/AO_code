@@ -160,7 +160,7 @@ def xderZ(j, x, y):
         n_new = n - 2.0
         
         #check if the new n and m values are valid values (only add recursion if new n and m make sense)
-        if (n_new - np.abs(m)) %2 == 0 and n_new >= 0 and n_new >= np.abs(m): 
+        if (n_new - np.abs(m)) %2 == 0 and n_new >= 1 and n_new >= np.abs(m): 
             j_new = Zernike_nm_2_j(n_new, m)        
             xder = n * (bfact1 * Zernike_nm(n-1, am*np.abs(m-1), rho, phi) + \
                     am * np.sign(m+1.0) * bfact2 * Zernike_nm(n-1.0, am*np.abs(m+1.0), rho, phi)) + \
@@ -190,7 +190,7 @@ def yderZ(j, x, y):
         return np.zeros(x.shape)
     if n == 1:
         if m == -1:
-            return -2*np.ones(x.shape)
+            return 2*np.ones(x.shape)
         else:
             return np.zeros(x.shape)
     
@@ -201,11 +201,12 @@ def yderZ(j, x, y):
         bfact2 = np.sqrt((2.0 - (m == 0))*(n+1.0)) / np.sqrt((2.0 - ((m+1.0) == 0))*n)
         bfact3 = np.sqrt((2.0 - (m == 0))*(n+1.0)) / np.sqrt((2.0 - (m == 0))*(n-1.0))
         n_new = n - 2.0
+        print(n, n_new, m)
         
         #check if the new n and m values are valid values (only add recursion if new n and m make sense)
-        if (n_new - np.abs(m)) %2 == 0 and n_new >= 0 and n_new >= np.abs(m): 
+        if (n_new - np.abs(m)) %2 == 0 and n_new >= 1 and n_new >= np.abs(m): 
             j_new = Zernike_nm_2_j(n_new, m)
-            print(n_new, m)        
+            #print(n_new, m)        
             yder = n*(-1*am*np.sign(m-1.0)*bfact1*Zernike_nm(n-1.0, -1*am*np.abs(m-1), rho, phi) + \
                         bfact2 * Zernike_nm(n-1.0, -1*am*np.abs(m+1.0), rho, phi)) + \
                         bfact3 * yderZ(j_new, x, y)
