@@ -205,7 +205,6 @@ def yderZ(j, x, y):
         #check if the new n and m values are valid values (only add recursion if new n and m make sense)
         if (n_new - np.abs(m)) %2 == 0 and n_new >= 1 and n_new >= np.abs(m): 
             j_new = Zernike_nm_2_j(n_new, m)
-            #print(n_new, m)        
             yder = n*(-1*am*np.sign(m-1.0)*bfact1*Zernike_nm(n-1.0, -1*am*np.abs(m-1), rho, phi) + \
                         bfact2 * Zernike_nm(n-1.0, -1*am*np.abs(m+1.0), rho, phi)) + \
                         bfact3 * yderZ(j_new, x, y)
