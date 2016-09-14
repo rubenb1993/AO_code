@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 ## Find the real Zernike coefficients using the derivative of the wavefront
 
 ## Part of the Adaptive Optics code by Ruben Biesheuvel (ruben.biesheuvel@gmail.com)
@@ -22,6 +23,7 @@ import math
 import time
 import matplotlib.pyplot as plt
 from matplotlib import rc
+from matplotlib import cm
 
 
 # Define font for figures
@@ -45,7 +47,12 @@ def zero_positions(image, spotsize = 25):
 ##### Gather centroids ####
 
 def centroid_positions(x_pos_flat, y_pos_flat, image, xx, yy, spot_size = 25):
-    "Gather position (in px) of all maxima in image, given the position of maxima with a flat wavefront"
+    """Gather position (in px) of all maxima in image, given the position of maxima with a flat wavefront
+    x_pos_flat & y_pos_flat: arrays with x and y coordinates of centroids
+    image: tif snapshot of the SH
+    xx & yy: meshgrids of pixels
+    spot_size: approximate width of domain (in px) of one SH lenslet
+    output: 2 arrays of x and y centroids in new figure"""
     centroids = np.zeros(shape = (len(x_pos_flat),2))
     image[image<4] = 0 #remove noisy pixels
     for i in range(len(x_pos_flat)):
@@ -57,7 +64,7 @@ def centroid_positions(x_pos_flat, y_pos_flat, image, xx, yy, spot_size = 25):
         norm_photons = 1/np.sum(image[y_low: y_high, x_low: x_high])
         centroids[i,0] = norm_photons * np.sum(image[y_low: y_high, x_low: x_high] * xx[y_low: y_high, x_low: x_high])
         centroids[i,1] = norm_photons * np.sum(image[y_low: y_high, x_low: x_high] * yy[y_low: y_high, x_low: x_high])
-    return np.reshape(centroids, -1)
+    return centroids[:,0], centroids[:,1]
     
 #### Centroid positions to slope on unit circle ####
 
@@ -84,13 +91,15 @@ def Zernike_nm(n, m, rho, theta):
         if m > 0:
             angular = np.cos(m*theta)
         elif m < 0:
-            angular = np.sin(abs(m)*theta)
+            angular = -1 * np.sin(m*theta)
         else:
             angular = 1
-        if m == 0:
-            return np.sqrt(n+1) * angular * radial
-        else:
-            return np.sqrt(2*n + 2) * angular * radial
+            
+        return np.sqrt((2 - (m == 0)) * (n + 1)) * angular * radial
+        #if m == 0:
+        #    return np.sqrt(n+1) * angular * radial
+        #else:
+        #    return np.sqrt(2*n + 2) * angular * radial
     else:
         return np.zeros(shape=rho.shape)
     
@@ -159,8 +168,9 @@ def xderZ(j, x, y):
         bfact3 = np.sqrt((2.0 - (m == 0))*(n+1.0)) / np.sqrt((2.0 - (m == 0))*(n-1.0))
         n_new = n - 2.0
         
+        
         #check if the new n and m values are valid values (only add recursion if new n and m make sense)
-        if (n_new - np.abs(m)) %2 == 0 and n_new >= 1 and n_new >= np.abs(m): 
+        if (n_new - np.abs(m)) %2 == 0 and n_new >= 1 and n_new >= np.abs(m):
             j_new = Zernike_nm_2_j(n_new, m)        
             xder = n * (bfact1 * Zernike_nm(n-1, am*np.abs(m-1), rho, phi) + \
                     am * np.sign(m+1.0) * bfact2 * Zernike_nm(n-1.0, am*np.abs(m+1.0), rho, phi)) + \
@@ -190,7 +200,7 @@ def yderZ(j, x, y):
         return np.zeros(x.shape)
     if n == 1:
         if m == -1:
-            return 2*np.ones(x.shape)
+            return 2.0*np.ones(x.shape)
         else:
             return np.zeros(x.shape)
     
@@ -218,52 +228,105 @@ def yderZ(j, x, y):
         
 #### check the numerical derivatives with analytical ones from Stephenson [1] ####
 def check_num_der(savefigure = False):
+    """Function to check if the derivatives calculated by xderZ and yderZ comply with analytical values given by Stephenson [1]
+    savefigure = True will save the figure generated."""
     rho = np.linspace(0, 1, 50)
-    theta = np.pi/4 * np.ones(rho.shape)
+    theta = 0.0 * np.pi/2 * np.ones(rho.shape)
+    #theta = np.pi/2 * np.ones(rho.shape)
     x, y = pol2cart(rho, theta)
-    n = np.array([1.0, 4.0, 5.0])
-    m = np.array([1.0, 0.0, -1.0])
+    n = np.array([4.0, 5.0, 5.0, 5.0, 5.0])
+    m = np.array([0.0, -1.0, -3.0, 1.0, 3.0])
     j = Zernike_nm_2_j(n, m)
+    
+    #set 3d display parameters
+    r_mat = np.linspace(0,1,20)
+    theta_mat = np.linspace(0, 2*np.pi, 20)
+    radius_matrix, theta_matrix = np.meshgrid(r_mat,theta_mat)
+    X, Y = radius_matrix*np.cos(theta_matrix), radius_matrix*np.sin(theta_matrix)
     
     xderZ_com = np.zeros((len(x),len(j)))
     yderZ_com = np.zeros((len(x),len(j)))
     xderZ_ana = np.zeros((len(x),len(j)))
     yderZ_ana = np.zeros((len(x),len(j)))
+    Z = np.zeros((len(r_mat), len(r_mat), len(j)))
     
     
     for i in range(len(j)):
         xderZ_com[:,i] = xderZ(j[i], x, y)
         yderZ_com[:,i] = yderZ(j[i], x, y)
+        Z[:,:,i] = Zernike_nm(n[i], m[i], radius_matrix, theta_matrix)
         
-    xderZ_ana[:,0] = 2 * np.ones(x.shape)
-    xderZ_ana[:,1] = 12 * np.sqrt(5) * x * (2 * (x**2 + y**2) - 1)
-    xderZ_ana[:,2] = 16 * np.sqrt(3) * x * y * (5*x**2 + 5*y**2 - 3)
+    xderZ_ana[:,0] = 12 * np.sqrt(5) * x * (2 * x**2 + 2 * y**2 -1)
+    xderZ_ana[:,1] = 16* np.sqrt(3) * x * y * (5 * x**2 + 5 * y**2 - 3)
+    xderZ_ana[:,2] = 8 * np.sqrt(3) * x * y * (15 * x**2 + 5 * y**2 - 6)
+    xderZ_ana[:,3] = 2 * np.sqrt(3) * (50 * x**4 + 12 * x**2 * (5 * y**2 - 3) + 10* y**4 - 12* y**2 + 3)
+    xderZ_ana[:,4] = 2 * np.sqrt(3) * (25 * x**4 - 6 * x**2 * (y**2 + 2) - 3 * y**2 * (5 * y**2 -4))
+    #2 * np.sqrt(3) * (50 * x**4 + 12 * x**2 * (5 * y**2 - 3) + 10* y**4 - 12* y**2 + 3)
     
-    yderZ_ana[:,0] = np.zeros(x.shape)
-    yderZ_ana[:,1] = 12 * np.sqrt(5) * y * (2 * (x**2 + y**2) - 1)
-    yderZ_ana[:,2] = 2 * np.sqrt(3) * ( 50* x**4 + 12 * x**2 * (5*y**2 - 3) + 2 * y**2 * (5 * y**2 - 6) + 3)
+    yderZ_ana[:,0] = 12 * np.sqrt(5) * y * (2 * x**2 + 2 * y**2 -1)
+    yderZ_ana[:,1] = 2 * np.sqrt(3) * (50 * x**4 + 12 * x**2 * (5 * y**2 - 3) + 10* y**4 - 12* y**2 + 3)
+    yderZ_ana[:,2] = 2 * np.sqrt(3) * ( 15 * x**4 - 6 * x**2 * (5* y**2 - 2) - y**2 * (25 * y**2 - 12))
+    yderZ_ana[:,3] = 16* np.sqrt(3) * x * y * (5 * x**2 + 5 * y**2 - 3)
+    yderZ_ana[:,4] = -8 * np.sqrt(3) * x * y * (5 * x**2 + 15 * y**2 - 6)
+    #16* np.sqrt(3) * x * y * (5 * x**2 + 5 * y**2 - 3)
     
     #makefigure
-    f, axarr = plt.subplots(3, 2, sharex=True, sharey='row')
-    for ii in range(3):
-            ana, = axarr[ii,0].plot(x, xderZ_ana[:,ii], 'r-', label='Analytic')
-            comp, = axarr[ii,0].plot(x, xderZ_com[:,ii], 'bo', markersize = 2, label='computational')
-            axarr[ii,1].plot(x, yderZ_ana[:,ii], 'r-', x, yderZ_com[:,ii], 'bo', markersize = 2)
+    f, axarr = plt.subplots(5, 2, sharex='col', sharey='row')
+    f2, axarr2 = plt.subplots(5, 1, sharex = True, sharey = True)
+    for ii in range(len(j)):
+        ana, = axarr[ii,0].plot(rho, xderZ_ana[:,ii], 'r-', label='Analytic')
+        comp, = axarr[ii,0].plot(rho, xderZ_com[:,ii], 'bo', markersize = 2, label='computational')
+        axarr[ii,1].plot(rho, yderZ_ana[:,ii], 'r-', rho, yderZ_com[:,ii], 'bo', markersize = 2)
             
-    axarr[0,0].set_xlim([0, 1/np.sqrt(2)])
-    axarr[0,0].set_ylim([-1, 3])
-    axarr[2,0].set_xlabel(r'$ \rho $')
-    axarr[0,0].set_ylabel(r'$Z_1^1$')
-    axarr[1,0].set_ylabel(r'$Z_4^0$')
-    axarr[2,0].set_ylabel(r'$Z_5^{-1}$')
+    
+        ZZ = axarr2[ii].contourf(X, Y, Z[:,:,ii], rstride=1, cstride=1, cmap=cm.YlGnBu_r)
+            
+        axarr2[ii].set_xlim([-1, 1])
+        axarr2[ii].set_ylim([-1, 1]) 
+    plt.colorbar(ZZ)      
+    axarr[0,0].set_xlim([0, 1])
+
+    axarr[4,0].set_xlabel(r'$ \rho $')
+    axarr[0,0].set_ylabel(r'$Z_4^0$')
+    axarr[1,0].set_ylabel(r'$Z_5^{-1}$')
+    axarr[2,0].set_ylabel(r'$Z_5^{-3}$')
+    axarr[3,0].set_ylabel(r'$Z_5^{1}$')
+    axarr[4,0].set_ylabel(r'$Z_5^{3}$')
     axarr[0,0].set_title(r'$\partial / \partial x$')
     axarr[0,1].set_title(r'$\partial / \partial y$')
     
     plt.figlegend((ana, comp), ('Analytical', 'Computational') , 'lower right', ncol = 2, fontsize = 9 )
     if savefigure:
         f.savefig('AO_code/derivatives_comparison.pdf', bbox_inches='tight', pad_inches=0.1)
-        f.show()
-        
+        plt.show()
     else:
         plt.show()
     return
+
+##### Create the geometry matrix #### 
+def geometry_matrix(x, y, j_max):
+    """Creates the geometry matrix of the SH sensor according to the lecture slides of Imaging Physics (2015-2016)"""
+    Bx = np.zeros((len(x), j_max))
+    By = np.zeros((len(x), j_max))
+    for jj in range(j_max):
+        for ii in range(len(x)):
+            Bx[ii, jj] = xderZ(jj+2, x[ii], y[ii])
+            By[ii, jj] = yderZ(jj+2, x[ii], y[ii])
+    B = np.vstack((Bx, By))
+    return B
+
+##### Solve dat system yo #####        
+def solve_system(px_size, f, r_sh, j_max):
+    #To do:
+    #gather flat positions
+    #take snapshot of image
+    #make meshgrid of pixels
+    #input: px_size, f, r_sh
+    #determine amount of j you want
+    x_pos_dist, y_pos_dist = centroid_positions(x_pos_flat, y_pos_flat, image, xx, yy, spot_size = 25)
+    s = np.hstack(centroid2slope(x_pos_dist, y_pos_dist, x_pos_flat, y_pos_flat, px_size, f, r_sh))
+    Binv = np.linalg.pinv(geometry_matrix(x_pos_flat, y_pos_flat, j_max))
+    a = np.dot(Binv, s)
+    return a
+    
+    
