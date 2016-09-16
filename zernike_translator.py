@@ -1,8 +1,8 @@
-import dmctr
+#import dmctr
 import sys
 if "C:\Micro-Manager-1.4" not in sys.path:
     sys.path.append("C:\Micro-Manager-1.4")
-import MMCorePy
+#import MMCorePy
 import PIL.Image
 import numpy as np
 from math import factorial
@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 from matplotlib import cm
 
 
-reference=np.asarray(PIL.Image.open("shref.tif")).astype(float)
+#reference=np.asarray(PIL.Image.open("shref.tif")).astype(float)
 
 def centroid_positions(x_max, y_max, image, spot_size = 25):    
     centroids = np.zeros(shape = (len(x_max),2))

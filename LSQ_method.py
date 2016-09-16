@@ -18,12 +18,16 @@ if "C:\Micro-Manager-1.4" not in sys.path:
     sys.path.append("C:\Micro-Manager-1.4")
 #import MMCorePy
 import PIL.Image
+import itertools
+from scipy import special
 import numpy as np
 import math
 import time
 import matplotlib.pyplot as plt
 from matplotlib import rc
 from matplotlib import cm
+from mpl_toolkits.mplot3d import Axes3D
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 
 # Define font for figures
@@ -139,6 +143,61 @@ def Zernike_nm_2_j(n, m):
     p = (n + np.abs(m))/2.0
     return p**2 + n - np.abs(m) + 1 + (m<0)
     
+def Zernike_power_mat(j_max):
+    """Returns a 3d matrix containing cartesian expression of Zernike polynomials using
+        [2] H. van Brug, "Efficient Cartesian representation of Zernike polynomials in computer memory",
+    in: j_max the maximum j (fringe convention) you want to create
+    out fmat: a (n+1, n+1, j_max) matrix where fmat[...,i] contains the matrix of the i+1th Zernike polynomial as defined in [2] 
+    
+    !!!THIS MATRIX IS NORMALIZED S.T. int(|Z_j|^2) = pi!!!
+    """
+    j_max = int(j_max)
+    n_max = np.max([Zernike_j_2_nm(j)[0] for j in range(j_max+1)]) #find maximum n as n of j_max might not be the maximum n
+    fmat = np.zeros((n_max+1, n_max+1, j_max)) #allocate memory
+    for jj in range(j_max):
+        n, m_not_brug = Zernike_j_2_nm(jj+1) #brug uses different m, see later defined
+        l = -m_not_brug
+        
+        if ( l > 0):
+            p = 1
+            q =  l/2.0 + 0.5 * (n%2.0) - 1.0
+        else:
+            p = 0
+            q = -l/2.0 - 0.5*(n%2)
+            
+        #make integers for range    
+        q = int(q)
+        m = int((n-abs(l)) / 2)
+        
+        norm = np.sqrt( (2 - (m_not_brug == 0))*(n+1)) #precompute normalization
+        
+        for i in range(q+1):
+            for j in range(m+1):
+                for k in range(m-j+1):
+                    fact = np.power(-1, i+j)
+                    fact *= special.binom( np.abs(l), 2*i + p)
+                    fact *= special.binom( m-j, k)
+                    fact *= math.factorial(n-j) / ( math.factorial(j) * math.factorial(m-j) * math.factorial(n-m-j))
+                    ypow = 2 * (i+k) + p
+                    xpow = n - 2 * (i+j+k) - p
+                    fmat[xpow, ypow, jj] += fact * norm     
+    return fmat
+        
+def Zernike_xy(x, y, power_mat, j):
+    """Computes the value of Zj at points x and y
+    in: x, y: coordinate matrices
+    power_mat: the power matrix as made by Zernike_power_mat
+    j the fringe order of your polynomial
+    out: Z, a matrix containing the values of Zj at points x and y
+    
+    Normalized s.t. int(|Z_j|^2) = pi"""
+    x_list, y_list = np.nonzero(power_mat[...,j-1])
+    Z = np.zeros(x.shape)
+    for i in range(len(x_list)):
+        Z += power_mat[x_list[i], y_list[i], j-1] * np.power(x, x_list[i]) * np.power(y, y_list[i])
+    return Z
+    
+
 def xderZ(j, x, y):
     """Calculate the x derivative of a Zernike polynomial of FRINGE ordering j according to [1].
     j: scalar value for the order of the polynomial
@@ -231,8 +290,8 @@ def check_num_der(savefigure = False):
     """Function to check if the derivatives calculated by xderZ and yderZ comply with analytical values given by Stephenson [1]
     savefigure = True will save the figure generated."""
     rho = np.linspace(0, 1, 50)
-    theta = 0.0 * np.pi/2 * np.ones(rho.shape)
-    #theta = np.pi/2 * np.ones(rho.shape)
+    #theta = 0.0 * np.pi/2 * np.ones(rho.shape)
+    theta = np.pi/2 * np.ones(rho.shape)
     x, y = pol2cart(rho, theta)
     n = np.array([4.0, 5.0, 5.0, 5.0, 5.0])
     m = np.array([0.0, -1.0, -3.0, 1.0, 3.0])
@@ -272,18 +331,21 @@ def check_num_der(savefigure = False):
     
     #makefigure
     f, axarr = plt.subplots(5, 2, sharex='col', sharey='row')
-    f2, axarr2 = plt.subplots(5, 1, sharex = True, sharey = True)
+    f.suptitle('theta = ' + str(theta[0]), fontsize = 11)
+    f2, axarr2 = plt.subplots(5, 1, sharex = True, sharey = True, figsize=(plt.figaspect(5.)))
     for ii in range(len(j)):
         ana, = axarr[ii,0].plot(rho, xderZ_ana[:,ii], 'r-', label='Analytic')
         comp, = axarr[ii,0].plot(rho, xderZ_com[:,ii], 'bo', markersize = 2, label='computational')
         axarr[ii,1].plot(rho, yderZ_ana[:,ii], 'r-', rho, yderZ_com[:,ii], 'bo', markersize = 2)
+        f.legend((ana, comp), ('Analytical', 'Computational') , 'lower right', ncol = 2, fontsize = 9 )
             
-    
-        ZZ = axarr2[ii].contourf(X, Y, Z[:,:,ii], rstride=1, cstride=1, cmap=cm.YlGnBu_r)
-            
+        ZZ = axarr2[ii].contourf(X, Y, Z[:,:,ii], rstride=1, cstride=1, cmap=cm.YlGnBu_r, linewidth = 0 )
+        
         axarr2[ii].set_xlim([-1, 1])
-        axarr2[ii].set_ylim([-1, 1]) 
-    plt.colorbar(ZZ)      
+        axarr2[ii].set_ylim([-1, 1])
+        axarr2[ii].set(adjustable = 'box-forced', aspect = 'equal') 
+        cbar = plt.colorbar(ZZ, ax = axarr2[ii])      
+
     axarr[0,0].set_xlim([0, 1])
 
     axarr[4,0].set_xlabel(r'$ \rho $')
@@ -292,16 +354,77 @@ def check_num_der(savefigure = False):
     axarr[2,0].set_ylabel(r'$Z_5^{-3}$')
     axarr[3,0].set_ylabel(r'$Z_5^{1}$')
     axarr[4,0].set_ylabel(r'$Z_5^{3}$')
+    axarr2[0].set_ylabel(r'$Z_4^0$')
+    axarr2[1].set_ylabel(r'$Z_5^{-1}$')
+    axarr2[2].set_ylabel(r'$Z_5^{-3}$')
+    axarr2[3].set_ylabel(r'$Z_5^{1}$')
+    axarr2[4].set_ylabel(r'$Z_5^{3}$')
     axarr[0,0].set_title(r'$\partial / \partial x$')
     axarr[0,1].set_title(r'$\partial / \partial y$')
     
-    plt.figlegend((ana, comp), ('Analytical', 'Computational') , 'lower right', ncol = 2, fontsize = 9 )
+    
     if savefigure:
-        f.savefig('AO_code/derivatives_comparison.pdf', bbox_inches='tight', pad_inches=0.1)
+        f.savefig('AO_code/derivatives_comparison_theta_pi_over_2.pdf', bbox_inches='tight', pad_inches=0.1)
+        f2.savefig('AO_code/Zernikes_for_comparison.pdf', bbox_inches = 'tight', pad_inches = 0.1)
         plt.show()
     else:
         plt.show()
     return
+
+def Check_zernike(savefigure = False):
+    n = np.array([4.0, 5.0, 5.0, 5.0, 5.0])
+    m = np.array([0.0, -1.0, -3.0, 1.0, 3.0])
+    j = Zernike_nm_2_j(n, m)
+    
+    #set 3d display parameters
+    r_mat = np.linspace(0,1,20)
+    theta_mat = np.linspace(0, 2*np.pi, 20)
+    radius_matrix, theta_matrix = np.meshgrid(r_mat,theta_mat)
+    X, Y = radius_matrix*np.cos(theta_matrix), radius_matrix*np.sin(theta_matrix)
+    
+    Z_brug = np.zeros((len(r_mat), len(r_mat), len(j)))
+    Z_not_brug = np.zeros((len(r_mat), len(r_mat), len(j)))
+    power_mat = Zernike_power_mat(np.max(j))
+    
+    for i in range(len(j)):
+        Z_brug[...,i] = Zernike_xy(X, Y, power_mat, j[i])
+        Z_not_brug[:,:,i] = Zernike_nm(n[i], m[i], radius_matrix, theta_matrix)
+        
+    #makefigure
+    f, axarr = plt.subplots(5, 2, sharex=True, sharey=True)
+    for ii in range(len(j)):
+        ZZ = axarr[ii,0].contourf(X, Y, Z_brug[:,:,ii], rstride=1, cstride=1, cmap=cm.YlGnBu_r, linewidth = 0 )
+        ZZ2 = axarr[ii,1].contourf(X, Y, Z_not_brug[...,ii], rstride=1, cstride=1, cmap=cm.YlGnBu_r, linewidth=0)
+        
+        axarr[ii,0].set_xlim([-1, 1])
+        axarr[ii,0].set_ylim([-1, 1])
+        axarr[ii,0].set(adjustable = 'box-forced', aspect = 'equal') 
+        axarr[ii,1].set_xlim([-1, 1])
+        axarr[ii,1].set_ylim([-1, 1])
+        axarr[ii,1].set(adjustable = 'box-forced', aspect = 'equal') 
+        cbar = plt.colorbar(ZZ, ax = axarr[ii,0])     
+        cbar2 = plt.colorbar(ZZ2, ax = axarr[ii,1]) 
+
+
+    axarr[4,0].set_xlabel(r'$ \rho $')
+    axarr[0,0].set_ylabel(r'$Z_4^0$')
+    axarr[1,0].set_ylabel(r'$Z_5^{-1}$')
+    axarr[2,0].set_ylabel(r'$Z_5^{-3}$')
+    axarr[3,0].set_ylabel(r'$Z_5^{1}$')
+    axarr[4,0].set_ylabel(r'$Z_5^{3}$')
+    axarr[0,0].set_title(r'Zernike using Brug')
+    axarr[0,1].set_title(r'Zernike using Stephenson')
+    print('Logic test if Z_brug and Z_not_brug are equal with tol = 1e-05 results in ' + str(np.allclose(Z_brug, Z_not_brug)))
+    
+    if savefigure:
+        f.savefig('AO_code/zernike_comparison.pdf', bbox_inches='tight', pad_inches=0.1)
+        plt.show()
+    else:
+        plt.show()
+    return
+
+
+
 
 ##### Create the geometry matrix #### 
 def geometry_matrix(x, y, j_max):
