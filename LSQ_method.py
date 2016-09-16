@@ -422,8 +422,88 @@ def Check_zernike(savefigure = False):
     else:
         plt.show()
     return
+    
+def check_num_brug(savefigure = False):
+    """Function to check if the derivatives calculated by xderZ and yderZ comply with analytical values given by Stephenson [1]
+    savefigure = True will save the figure generated."""
+    rho = np.linspace(0, 1, 50)
+    theta = 0.0 * np.pi/2 * np.ones(rho.shape)
+    x, y = pol2cart(rho, theta)
+    n = np.array([4.0, 5.0, 5.0, 5.0, 5.0])
+    m = np.array([0.0, -1.0, -3.0, 1.0, 3.0])
+    j = Zernike_nm_2_j(n, m)
+    power_mat = Zernike_power_mat(np.max(j))
+    
+    xderZ_com = np.zeros((len(x),len(j)))
+    yderZ_com = np.zeros((len(x),len(j)))
+    xderZ_ana = np.zeros((len(x),len(j)))
+    yderZ_ana = np.zeros((len(x),len(j)))
+    
+    
+    for i in range(len(j)):
+        xderZ_com[:,i] = xderZ(j[i], x, y)
+        yderZ_com[:,i] = yderZ(j[i], x, y)
+        xderZ_ana[:,i] = xder_brug(x, y, power_mat, j[i])
+        yderZ_ana[:,i] = yder_brug(x, y, power_mat, j[i])
+    
+    #makefigure
+    f, axarr = plt.subplots(5, 2, sharex='col', sharey='row')
+    f.suptitle('theta = ' + str(theta[0]), fontsize = 11)
+    for ii in range(len(j)):
+        ana, = axarr[ii,0].plot(rho, xderZ_ana[:,ii], 'r-', label='Brug')
+        comp, = axarr[ii,0].plot(rho, xderZ_com[:,ii], 'bo', markersize = 2, label='Stephenson')
+        axarr[ii,1].plot(rho, yderZ_ana[:,ii], 'r-', rho, yderZ_com[:,ii], 'bo', markersize = 2)
+        f.legend((ana, comp), ('Stephenson', 'Brug') , 'lower right', ncol = 2, fontsize = 9 )     
+
+    axarr[0,0].set_xlim([0, 1])
+
+    axarr[4,0].set_xlabel(r'$ \rho $')
+    axarr[0,0].set_ylabel(r'$Z_4^0$')
+    axarr[1,0].set_ylabel(r'$Z_5^{-1}$')
+    axarr[2,0].set_ylabel(r'$Z_5^{-3}$')
+    axarr[3,0].set_ylabel(r'$Z_5^{1}$')
+    axarr[4,0].set_ylabel(r'$Z_5^{3}$')
+    axarr[0,0].set_title(r'$\partial / \partial x$')
+    axarr[0,1].set_title(r'$\partial / \partial y$')
+    
+    
+    if savefigure:
+        f.savefig('AO_code/stephenson_brug_comparison.pdf', bbox_inches='tight', pad_inches=0.1)
+        plt.show()
+    else:
+        plt.show()
+    return
 
 
+def xder_brug(x, y, power_mat, j):
+    """Computes the value of dZj/dx at points x and y
+    in: x, y: coordinate matrices
+    power_mat: the power matrix as made by Zernike_power_mat
+    j the fringe order of your polynomial
+    out: dZdx, a matrix containing the values of dZjdx at points x and y
+    
+    Normalized s.t. int(|Z_j|^2) = pi"""
+    power_mat = power_mat[1:, :, :]
+    x_list, y_list = np.nonzero(power_mat[...,j-1])
+    dZdx = np.zeros(x.shape)
+    for i in range(len(x_list)):
+        dZdx += (x_list[i]+1)*power_mat[x_list[i], y_list[i], j-1] * np.power(x, x_list[i]) * np.power(y, y_list[i])
+    return dZdx
+    
+def yder_brug(x, y, power_mat, j):
+    """Computes the value of dZj/dy at points x and y
+    in: x, y: coordinate matrices
+    power_mat: the power matrix as made by Zernike_power_mat
+    j the fringe order of your polynomial
+    out: Z, a matrix containing the values of dZj/dy at points x and y
+    
+    Normalized s.t. int(|Z_j|^2) = pi"""
+    power_mat = power_mat[:, 1:, :]
+    x_list, y_list = np.nonzero(power_mat[...,j-1])
+    dZdy = np.zeros(x.shape)
+    for i in range(len(x_list)):
+        dZdy += (y_list[i]+1)*power_mat[x_list[i], y_list[i], j-1] * np.power(x, x_list[i]) * np.power(y, y_list[i])
+    return dZdy
 
 
 ##### Create the geometry matrix #### 
