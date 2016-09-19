@@ -7,7 +7,7 @@
 #Gathering Centroids
 #Centroids -> dWx and dWy
 #Build "geometry matrix" (x and y derivative of Zernike pol. in all centroid positions)
-#
+#solve system: s = G a using pseudo-inverse
 
 
 ## Note, this program normalizes accoring to ... $$$ fill in $$$
@@ -499,7 +499,7 @@ def yder_brug(x, y, power_mat, j):
     
     Normalized s.t. int(|Z_j|^2) = pi"""
     power_mat = power_mat[:, 1:, :]
-    x_list, y_list = np.nonzero(power_mat[...,j-1])
+    x_list, y_list = np.nonzero(power_mat[...,j-1]) #-1 due to j = 1 in power_mat[...,0]
     dZdy = np.zeros(x.shape)
     for i in range(len(x_list)):
         dZdy += (y_list[i]+1)*power_mat[x_list[i], y_list[i], j-1] * np.power(x, x_list[i]) * np.power(y, y_list[i])
@@ -509,14 +509,12 @@ def yder_brug(x, y, power_mat, j):
 ##### Create the geometry matrix #### 
 def geometry_matrix(x, y, j_max):
     """Creates the geometry matrix of the SH sensor according to the lecture slides of Imaging Physics (2015-2016)"""
-    Bx = np.zeros((len(x), j_max))
-    By = np.zeros((len(x), j_max))
-    for jj in range(j_max):
-        for ii in range(len(x)):
-            Bx[ii, jj] = xderZ(jj+2, x[ii], y[ii])
-            By[ii, jj] = yderZ(jj+2, x[ii], y[ii])
-    B = np.vstack((Bx, By))
-    return B
+    power_mat = Zernike_power_mat(j_max)
+    B_brug = np.zeros((2*len(x), j_max))
+    for jj in range(2, j_max+1):
+        B_brug[:len(x), jj-2] = xder_brug(x,y, power_mat, jj)
+        B_brug[len(x):, jj-2] = yder_brug(x, y, power_mat, jj)
+    return B_brug
 
 ##### Solve dat system yo #####        
 def solve_system(px_size, f, r_sh, j_max):
