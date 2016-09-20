@@ -4,6 +4,16 @@ import numpy as np
 from scipy import special
 import math
 
+def cart2pol(x, y):
+    "returns polar coordinates given x and y"
+    rho = np.sqrt(x**2 + y**2)
+    phi = np.arctan2(y, x)
+    return rho, phi
+
+def pol2cart(rho, phi):
+    x = rho * np.cos(phi)
+    y = rho * np.sin(phi)
+    return x, y
 
 def Zernike_j_2_nm(j):
     """Converts Zernike index j (FRINGE convention) to index n and m. 
@@ -109,3 +119,118 @@ def yder_brug(x, y, power_mat, j):
     for i in range(len(x_list)):
         dZdy += (y_list[i]+1)*power_mat[x_list[i], y_list[i], j-1] * np.power(x, x_list[i]) * np.power(y, y_list[i])
     return dZdy
+ 
+    
+#### Old functions          
+def xderZ(j, x, y):
+    """Calculate the x derivative of a Zernike polynomial of FRINGE ordering j according to [1].
+    j: scalar value for the order of the polynomial
+    x, y: 1d vectors containing x and y positions of where the derivative has to be evaluated
+    out: 1d vector size of x with the values of the x derivative in those points
+    
+    [1] P.C.L. Stephenson, "Recurrence relations for the cartesian derivatives of the Zernike polynomials",
+                J. Opt. Soc. Am. A, Vol. 31, No. 4, 708-714 (2014) """
+    ## initialize values 
+    n, m = Zernike_j_2_nm(j)
+    rho, phi = cart2pol(x, y)
+    
+    ## Initial values
+    if n == 0:
+        return np.zeros(x.shape)
+    if n == 1:
+        if m == 1:
+            return 2*np.ones(x.shape)
+        else:
+            return np.zeros(x.shape)
+    
+    #check if n and m are valid values for Zernike polynomials
+    elif (n - np.abs(m)) %2 == 0 and n >= 0 and n >= np.abs(m): 
+        am = np.sign(np.sign(m)+0.5)
+        bfact1 = np.sqrt((2.0 - (m == 0))*(n+1.0)) / np.sqrt((2.0 - ((m-1.0) == 0))*n)
+        bfact2 = np.sqrt((2.0 - (m == 0))*(n+1.0)) / np.sqrt((2.0 - ((m+1.0) == 0))*n)
+        bfact3 = np.sqrt((2.0 - (m == 0))*(n+1.0)) / np.sqrt((2.0 - (m == 0))*(n-1.0))
+        n_new = n - 2.0
+        
+        
+        #check if the new n and m values are valid values (only add recursion if new n and m make sense)
+        if (n_new - np.abs(m)) %2 == 0 and n_new >= 1 and n_new >= np.abs(m):
+            j_new = Zernike_nm_2_j(n_new, m)        
+            xder = n * (bfact1 * Zernike_nm(n-1, am*np.abs(m-1), rho, phi) + \
+                    am * np.sign(m+1.0) * bfact2 * Zernike_nm(n-1.0, am*np.abs(m+1.0), rho, phi)) + \
+                    bfact3 * xderZ(j_new, x, y)
+            return xder
+        else:
+            xder = n * (bfact1 * Zernike_nm(n-1, am*np.abs(m-1), rho, phi) + \
+                    am * np.sign(m+1.0) * bfact2 * Zernike_nm(n-1.0, am*np.abs(m+1.0), rho, phi))
+            return xder
+    else:
+        return np.zeros(x.shape)
+        
+def yderZ(j, x, y):
+    """Calculate the y derivative of a Zernike polynomial of FRINGE ordering j according to [1].
+    j: scalar value for the order of the polynomial
+    x, y: 1d vectors containing x and y positions of where the derivative has to be evaluated
+    out: 1d vector size of x with the values of the x derivative in those points
+    
+    [1] P.C.L. Stephenson, "Recurrence relations for the cartesian derivatives of the Zernike polynomials",
+                J. Opt. Soc. Am. A, Vol. 31, No. 4, 708-714 (2014) """
+    ## initialize values 
+    n, m = Zernike_j_2_nm(j)
+    rho, phi = cart2pol(x, y)
+    
+    ## Initial values
+    if n == 0:
+        return np.zeros(x.shape)
+    if n == 1:
+        if m == -1:
+            return 2.0*np.ones(x.shape)
+        else:
+            return np.zeros(x.shape)
+    
+    #check if n and m are valid values for Zernike polynomials
+    elif (n - np.abs(m)) %2 == 0 and n >= 0 and n >= np.abs(m): 
+        am = np.sign(np.sign(m)+0.5)
+        bfact1 = np.sqrt((2.0 - (m == 0))*(n+1.0)) / np.sqrt((2.0 - ((m-1.0) == 0))*n)
+        bfact2 = np.sqrt((2.0 - (m == 0))*(n+1.0)) / np.sqrt((2.0 - ((m+1.0) == 0))*n)
+        bfact3 = np.sqrt((2.0 - (m == 0))*(n+1.0)) / np.sqrt((2.0 - (m == 0))*(n-1.0))
+        n_new = n - 2.0
+                
+        #check if the new n and m values are valid values (only add recursion if new n and m make sense)
+        if (n_new - np.abs(m)) %2 == 0 and n_new >= 1 and n_new >= np.abs(m): 
+            j_new = Zernike_nm_2_j(n_new, m)
+            yder = n*(-1*am*np.sign(m-1.0)*bfact1*Zernike_nm(n-1.0, -1*am*np.abs(m-1), rho, phi) + \
+                        bfact2 * Zernike_nm(n-1.0, -1*am*np.abs(m+1.0), rho, phi)) + \
+                        bfact3 * yderZ(j_new, x, y)
+            return yder
+        else:
+            yder = n*(-1*am*np.sign(m-1.0)*bfact1*Zernike_nm(n-1.0, -1*am*np.abs(m-1), rho, phi) + \
+                        bfact2 * Zernike_nm(n-1.0, -1*am*np.abs(m+1.0), rho, phi))
+            return yder
+    else:
+        return np.zeros(x.shape)
+        
+def Zernike_nm(n, m, rho, theta):
+    """Returns the values of the Zernike polynomial of radial and azimuthal order (n & m). 
+    n and m should be integers,
+    rho and theta np arrays with the same size
+    out: array with values of at the points rho and theta"""
+    if (n-np.abs(m)) %2 == 0 and (n >= 0) and (n >= np.abs(m)): #check if even
+        s_max = int((n-abs(m))/2)
+        radial = np.zeros(shape=rho.shape)
+        for s in range(s_max + 1):
+            prefactor = (-1)**s * math.factorial(n-s) / (math.factorial(s) * math.factorial((n+abs(m))/2 - s) * math.factorial((n-abs(m))/2 - s))
+            radial += np.power(rho,(n - 2*s)) * prefactor
+        if m > 0:
+            angular = np.cos(m*theta)
+        elif m < 0:
+            angular = -1 * np.sin(m*theta)
+        else:
+            angular = 1
+            
+        return np.sqrt((2 - (m == 0)) * (n + 1)) * angular * radial
+        #if m == 0:
+        #    return np.sqrt(n+1) * angular * radial
+        #else:
+        #    return np.sqrt(2*n + 2) * angular * radial
+    else:
+        return np.zeros(shape=rho.shape)

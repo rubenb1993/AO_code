@@ -14,7 +14,6 @@
 # Note that Janssen normalizes according to int(|Z_n^m|^2) = pi/(n+1)
 
 import Hartmann as Hm
-#import Zernike as Zn
 import Zernike as Zn
 import numpy as np
 import math
@@ -49,7 +48,7 @@ j_max = 5           #Maximum fringe number for zernike evaluation
 power_mat = Zn.Zernike_power_mat(j_max, Janssen = True)
 Z_mat = np.zeros((len(x), j_max-1))
 for jj in range(2, j_max+1):
-    Z_mat[:, jj-2] = Zn.Zernike_xy(x, y, power_mat, jj)
+    Z_mat[:, jj-2] = Zn.Zernike_xy(x, y, power_mat, jj) #begin at j = 2
 
 #Invert and solve for beta
 Z_mat_inv = np.linalg.pinv(Z_mat)
@@ -57,4 +56,15 @@ dW_plus = dWdx + 1j * dWdy
 dW_min = dWdx - 1j * dWdy
 beta_plus = np.dot(Z_mat_inv, dW_plus)
 beta_min = np.dot(Z_mat_inv, dW_min)
+
+a = np.zeros(j_max-1)
+for jj in range(2, j_max+1):
+    n, m = Zn.Zernike_j_2_nm(jj)
+    index1 = Zn.Zernike_nm_2_j(n - 1.0, m + 1.0)
+    index2 = Zn.Zernike_nm_2_j(n - 1.0, m - 1.0)
+    index3 = Zn.Zernike_nm_2_j(n + 1.0, m + 1.0)
+    index4 = Zn.Zernike_nm_2_j(n + 1.0, m - 1.0)
+    fact1 = 1.0 / ( n * ( 1 + ((n-abs(m))/2 > 0)))
+    fact2 = 1.0 / (2 * (n+2) * ( 1 + (((n+2-abs(m))/2) > 0)))
+    a[jj] = fact1 * (beta_plus[index1] + beta_min[index2]) - fact2 * (beta_plus[index3] + beta_min[index4]) 
 
