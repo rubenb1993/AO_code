@@ -6,7 +6,6 @@ import MMCorePy
 import PIL.Image
 import numpy as np
 import time
-import matplotlib.pyplot as plt
 
 def cost_function(cam1):
     cam1.snapImage()

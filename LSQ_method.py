@@ -10,22 +10,20 @@
 #solve system: s = G a using pseudo-inverse
 
 
-## Note, this program normalizes accoring to ... $$$ fill in $$$
+## Note, this program normalizes accoring to int(|Z_j|^2) = pi
 
 #import dmctr
 import sys
 if "C:\Micro-Manager-1.4" not in sys.path:
     sys.path.append("C:\Micro-Manager-1.4")
-#import MMCorePy
+import MMCorePy
 import PIL.Image
-from scipy import special
 import numpy as np
-import math
-import matplotlib.pyplot as plt
 from matplotlib import rc
-from matplotlib import cm
 import Hartmann as Hm
 import Zernike as Zn
+import edac40
+
 
 # Define font for figures
 rc('font', **{'family': 'serif', 'serif': ['Computer Modern']})
@@ -52,17 +50,57 @@ def pol2cart(rho, phi):
     y = rho * np.sin(phi)
     return x, y
     
+    
+#### Set up mirrors
+mirror = edac40.OKOMirror("169.254.158.203") # Enter real IP in here
+n_act = 19
+half_volt = 6.0
+voltages = half_volt * np.ones(n_act)  # V = 0 to 12V
+mirror.set(voltages)
+
+#### Set up cameras
+cam1=MMCorePy.CMMCore()
+
+cam1.loadDevice("cam","ThorlabsUSBCamera","ThorCam")
+cam1.initializeDevice("cam")
+cam1.setCameraDevice("cam")
+cam1.setProperty("cam","PixelClockMHz",30)
+cam1.setProperty("cam","Exposure",0.6)
+
+cam2=MMCorePy.CMMCore()
+
+cam2.loadDevice("cam","ThorlabsUSBCamera","ThorCam")
+cam2.initializeDevice("cam")
+cam2.setCameraDevice("cam")
+cam2.setProperty("cam","PixelClockMHz",30)
+cam2.setProperty("cam","Exposure",0.1)
+
+cam1.snapImage()
+cam2.snapImage()
+
+cam1.snapImage()
+cam2.snapImage()
+
+PIL.Image.fromarray(cam1.getImage()).save("camera1.tif")
+PIL.Image.fromarray(cam2.getImage()).save("camera2.tif")
+
+## Get shref
+PIL.Image.fromarray(cam2.getImage()).save("shref.tif")
+
+#reference image
+zero_image = np.asarray(PIL.Image.open("shref.tif")).astype(float)
+
+
 ##### Make list of maxima given "flat" wavefront ####
-#x_pos_flat, y_pos_flat = Hm.zero_positions(zero_image)
+x_pos_flat, y_pos_flat = Hm.zero_positions(zero_image)
 
 ## Given paramters for centroid gathering
-nx = 128            #number of pixels x direction
-ny = 128            #                 y direction
-px_size = 1e-6      # width of pixels 
-f = 1e-3            # focal length
-r_sh = 10e-3        # radius of shack hartmann sensor
-x = np.linspace(0, nx, nx+1)
-y = np.linspace(0, ny, ny+1)
+[ny,nx] = zero_image.shape
+px_size = 5.2e-6     # width of pixels 
+f = 17.6e-3            # focal length
+r_sh = nx*px_size/2.0        # radius of shack hartmann sensor
+x = np.linspace(1, nx, nx)
+y = np.linspace(1, ny, ny)
 xx, yy = np.meshgrid(x, y)
 j_max= 10           # maximum fringe order
 

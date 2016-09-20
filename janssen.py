@@ -16,18 +16,18 @@
 import Hartmann as Hm
 import Zernike as Zn
 import numpy as np
-import math
-import scipy.special
+import PIL.Image
+
 
 
 ### Gather centroids
+zero_image = np.asarray(PIL.Image.open("shref.tif")).astype(float)
 
 #Get 0 measurement saved as image
-#x_pos_flat, y_pos_flat = Hm.zero_positions(zero_image)
+x_pos_flat, y_pos_flat = Hm.zero_positions(zero_image)
 
 ## Given paramters for centroid gathering
-nx = 128            #number of pixels x direction
-ny = 128            #                 y direction
+[ny,nx] = zero_image.shape
 px_size = 1e-6      # width of pixels 
 f = 1e-3            # focal length
 r_sh = 10e-3        # radius of shack hartmann sensor
@@ -58,13 +58,15 @@ beta_plus = np.dot(Z_mat_inv, dW_plus)
 beta_min = np.dot(Z_mat_inv, dW_min)
 
 a = np.zeros(j_max-1)
+a_normalized = np.zeros(j_max-1)
 for jj in range(2, j_max+1):
     n, m = Zn.Zernike_j_2_nm(jj)
     index1 = Zn.Zernike_nm_2_j(n - 1.0, m + 1.0)
     index2 = Zn.Zernike_nm_2_j(n - 1.0, m - 1.0)
     index3 = Zn.Zernike_nm_2_j(n + 1.0, m + 1.0)
     index4 = Zn.Zernike_nm_2_j(n + 1.0, m - 1.0)
-    fact1 = 1.0 / ( n * ( 1 + ((n-abs(m))/2 > 0)))
+    fact1 = 1.0 / ( n * ( 1 + (((n-abs(m))/2) > 0)))
     fact2 = 1.0 / (2 * (n+2) * ( 1 + (((n+2-abs(m))/2) > 0)))
     a[jj] = fact1 * (beta_plus[index1] + beta_min[index2]) - fact2 * (beta_plus[index3] + beta_min[index4]) 
+    a_normalized[jj] = a[jj] * np.sqrt(n+1)
 
