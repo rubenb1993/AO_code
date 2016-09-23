@@ -92,26 +92,33 @@ zero_image = np.asarray(PIL.Image.open("shref.tif")).astype(float)
 
 
 ##### Make list of maxima given "flat" wavefront ####
-x_pos_flat, y_pos_flat = Hm.zero_positions(zero_image)
+x_pos_flat, y_pos_flat = Hm.zero_positions(zero_image) #initial guess of positions
 
 ## Given paramters for centroid gathering
 [ny,nx] = zero_image.shape
 px_size = 5.2e-6     # width of pixels 
 f = 17.6e-3            # focal length
-r_sh = nx*px_size/2.0        # radius of shack hartmann sensor
 x = np.linspace(1, nx, nx)
 y = np.linspace(1, ny, ny)
 xx, yy = np.meshgrid(x, y)
 j_max= 10           # maximum fringe order
 
-# Gather centroids and slope
-#x_pos_dist, y_pos_dist = Hm.centroid_positions(x_pos_flat, y_pos_flat, image, xx, yy)
-#dWdx, dWdy = Hm.centroid2slope(x_pos_dist, y_pos_dist, x_pos_flat, y_pos_flat, px_size, f, r_sh)
+## Gather 'real' centroid positions
+x_pos_flat, y_pos_flat = Hm.centroid_positions(x_pos_flat, y_pos_flat, zero_image, xx, yy)
+centre, r_sh = Hm.centroid_centre(x_pos_flat, y_pos_flat, zero_image, xx, yy, px_size)
 
-#G = geometry_matrix(x_pos_flat, y_pos_flat, j_max)
-#s = np.hstack(Hm.centroid2slope(x_pos_dist, y_pos_dist, x_pos_flat, y_pos_flat, px_size, f, r_sh))
-#Binv = np.linalg.pinv(geometry_matrix(x_pos_flat, y_pos_flat, j_max))
-#a = np.dot(Binv, s)
+### Normalize x, y
+x_pos_norm = (x_pos_flat - centre[0])/r_sh
+y_pos_norm = (y_pos_flat - centre[1])/r_sh
+
+# Gather centroids and slope
+x_pos_dist, y_pos_dist = Hm.centroid_positions(x_pos_flat, y_pos_flat, image, xx, yy)
+dWdx, dWdy = Hm.centroid2slope(x_pos_dist, y_pos_dist, x_pos_flat, y_pos_flat, px_size, f, r_sh)
+
+G = geometry_matrix(x_pos_norm, y_pos_norm, j_max)
+s = np.hstack(Hm.centroid2slope(x_pos_dist, y_pos_dist, x_pos_flat, y_pos_flat, px_size, f, r_sh))
+Binv = np.linalg.pinv(geometry_matrix(x_pos_flat, y_pos_flat, j_max))
+a = np.dot(Binv, s)
 
     
     

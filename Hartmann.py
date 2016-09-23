@@ -46,4 +46,18 @@ def centroid2slope(x_pos_dist, y_pos_dist, x_pos_flat, y_pos_flat, px_size, f, r
     slope_x = r_sh * (dx/f) #approximate wf slope as linearization and scale to unit disc by multiplying with r_sh
     slope_y = r_sh * (dy/f)
     return slope_x, slope_y
+
+#### Centroids centre and radius SH pattern
+def centroid_centre(x_pos_flat, y_pos_flat, image, xx, yy, px_size):
+    """Taken a SH pattern, find the centre of the SH circle and return the radius in meters.
+    Requires flat centroid positions, the image itself, x and y meshgrids of 'pixel position' and the size of the pixels in meters
+    """
+    centre = np.zeros(2)
+    image[image<4] = 0 #crudely remove noisy pixels
+    norm_photons = 1.0/np.sum(image)
+    centre[0] = norm_photons * np.sum(image * xx)
+    centre[1] = norm_photons * np.sum(image * yy)
+    r_sh = np.amax(np.sqrt(x_pos_flat**2 + y_pos_flat**2))
+    r_sh *= px_size
+    return centre, r_sh
     

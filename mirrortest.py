@@ -31,6 +31,6 @@ def defocus_cycle():
 ##        print np.sin(i%100*2*np.pi/100.0)*6.0
         time.sleep(0.05)
 ##actuators_test()        
-defocus_cycle()   
+#defocus_cycle()   
 
-mirror.close()
+#mirror.close()
