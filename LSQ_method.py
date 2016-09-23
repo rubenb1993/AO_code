@@ -14,15 +14,17 @@
 
 #import dmctr
 import sys
+import os
 if "C:\Micro-Manager-1.4" not in sys.path:
     sys.path.append("C:\Micro-Manager-1.4")
-import MMCorePy
+#import MMCorePy
 import PIL.Image
 import numpy as np
 from matplotlib import rc
 import Hartmann as Hm
 import Zernike as Zn
 import edac40
+import matplotlib.pyplot as plt
 
 
 # Define font for figures
@@ -52,43 +54,55 @@ def pol2cart(rho, phi):
     
     
 #### Set up mirrors
-mirror = edac40.OKOMirror("169.254.158.203") # Enter real IP in here
-n_act = 19
-half_volt = 6.0
-voltages = half_volt * np.ones(n_act)  # V = 0 to 12V
-mirror.set(voltages)
+#mirror = edac40.OKOMirror("169.254.158.203") # Enter real IP in here
+#n_act = 19
+#half_volt = 6.0
+#voltages = half_volt * np.ones(n_act)  # V = 0 to 12V
+#mirror.set(voltages)
 
 #### Set up cameras
-cam1=MMCorePy.CMMCore()
-
-cam1.loadDevice("cam","ThorlabsUSBCamera","ThorCam")
-cam1.initializeDevice("cam")
-cam1.setCameraDevice("cam")
-cam1.setProperty("cam","PixelClockMHz",30)
-cam1.setProperty("cam","Exposure",0.6)
-
-cam2=MMCorePy.CMMCore()
-
-cam2.loadDevice("cam","ThorlabsUSBCamera","ThorCam")
-cam2.initializeDevice("cam")
-cam2.setCameraDevice("cam")
-cam2.setProperty("cam","PixelClockMHz",30)
-cam2.setProperty("cam","Exposure",0.1)
-
-cam1.snapImage()
-cam2.snapImage()
-
-cam1.snapImage()
-cam2.snapImage()
-
-PIL.Image.fromarray(cam1.getImage()).save("camera1.tif")
-PIL.Image.fromarray(cam2.getImage()).save("camera2.tif")
+#cam1=MMCorePy.CMMCore()
+#
+#cam1.loadDevice("cam","ThorlabsUSBCamera","ThorCam")
+#cam1.initializeDevice("cam")
+#cam1.setCameraDevice("cam")
+#cam1.setProperty("cam","PixelClockMHz",30)
+#cam1.setProperty("cam","Exposure",0.6)
+#
+#cam2=MMCorePy.CMMCore()
+#
+#cam2.loadDevice("cam","ThorlabsUSBCamera","ThorCam")
+#cam2.initializeDevice("cam")
+#cam2.setCameraDevice("cam")
+#cam2.setProperty("cam","PixelClockMHz",30)
+#cam2.setProperty("cam","Exposure",0.1)
+#
+#cam1.snapImage()
+#cam2.snapImage()
+#
+#cam1.snapImage()
+#cam2.snapImage()
+#
+#PIL.Image.fromarray(cam1.getImage()).save("camera1.tif")
+#PIL.Image.fromarray(cam2.getImage()).save("camera2.tif")
 
 ## Get shref
-PIL.Image.fromarray(cam2.getImage()).save("shref.tif")
+#PIL.Image.fromarray(cam2.getImage()).save("shref.tif")
 
 #reference image
-zero_image = np.asarray(PIL.Image.open("shref.tif")).astype(float)
+impath_zero = os.path.abspath("AO_code/test_images/shref.tif")
+impath_dist = os.path.abspath("AO_code/test_images/sh_pattern_no_gain89.tif")
+zero_image = np.asarray(PIL.Image.open(impath_zero)).astype(float)
+dist_image = np.asarray(PIL.Image.open(impath_dist)).astype(float)
+plt.imshow(zero_image, cmap = 'bone')
+fig = plt.figure()
+plt.imshow(dist_image, cmap = 'bone')
+plt.show()
+
+
+zero_image_copy = zero_image
+x_pos_flat, y_pos_flat = Hm.zero_positions(zero_image_copy)
+
 
 
 ##### Make list of maxima given "flat" wavefront ####
