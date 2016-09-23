@@ -21,7 +21,7 @@ def Zernike_j_2_nm(j):
     input j: either scalar or an array (lists not supported)
     output n, m: either a scalar or an array of corresponding n and m.
     Built in additional check if j is integer. If not, n = -1 will be generated s.t. any zernike function will be 0"""
-    if (np.equal(np.mod(j, 1), 0)) and j > 0: 
+    if (np.all(np.mod(j, 1) == 0)) and np.all(np.array(j) > 0): 
         q = np.floor(np.sqrt(j-1.0))
         p = np.floor((j - q**2 - 1.0)/2.0)
         r = j - q**2 - 2*p

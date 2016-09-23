@@ -14,15 +14,17 @@
 
 #import dmctr
 import sys
+import os
 if "C:\Micro-Manager-1.4" not in sys.path:
     sys.path.append("C:\Micro-Manager-1.4")
-import MMCorePy
+#import MMCorePy
 import PIL.Image
 import numpy as np
 from matplotlib import rc
 import Hartmann as Hm
 import Zernike as Zn
 import edac40
+import matplotlib.pyplot as plt
 
 
 # Define font for figures
@@ -52,66 +54,86 @@ def pol2cart(rho, phi):
     
     
 #### Set up mirrors
-mirror = edac40.OKOMirror("169.254.158.203") # Enter real IP in here
-n_act = 19
-half_volt = 6.0
-voltages = half_volt * np.ones(n_act)  # V = 0 to 12V
-mirror.set(voltages)
+#mirror = edac40.OKOMirror("169.254.158.203") # Enter real IP in here
+#n_act = 19
+#half_volt = 6.0
+#voltages = half_volt * np.ones(n_act)  # V = 0 to 12V
+#mirror.set(voltages)
 
 #### Set up cameras
-cam1=MMCorePy.CMMCore()
-
-cam1.loadDevice("cam","ThorlabsUSBCamera","ThorCam")
-cam1.initializeDevice("cam")
-cam1.setCameraDevice("cam")
-cam1.setProperty("cam","PixelClockMHz",30)
-cam1.setProperty("cam","Exposure",0.6)
-
-cam2=MMCorePy.CMMCore()
-
-cam2.loadDevice("cam","ThorlabsUSBCamera","ThorCam")
-cam2.initializeDevice("cam")
-cam2.setCameraDevice("cam")
-cam2.setProperty("cam","PixelClockMHz",30)
-cam2.setProperty("cam","Exposure",0.1)
-
-cam1.snapImage()
-cam2.snapImage()
-
-cam1.snapImage()
-cam2.snapImage()
-
-PIL.Image.fromarray(cam1.getImage()).save("camera1.tif")
-PIL.Image.fromarray(cam2.getImage()).save("camera2.tif")
+#cam1=MMCorePy.CMMCore()
+#
+#cam1.loadDevice("cam","ThorlabsUSBCamera","ThorCam")
+#cam1.initializeDevice("cam")
+#cam1.setCameraDevice("cam")
+#cam1.setProperty("cam","PixelClockMHz",30)
+#cam1.setProperty("cam","Exposure",0.6)
+#
+#cam2=MMCorePy.CMMCore()
+#
+#cam2.loadDevice("cam","ThorlabsUSBCamera","ThorCam")
+#cam2.initializeDevice("cam")
+#cam2.setCameraDevice("cam")
+#cam2.setProperty("cam","PixelClockMHz",30)
+#cam2.setProperty("cam","Exposure",0.1)
+#
+#cam1.snapImage()
+#cam2.snapImage()
+#
+#cam1.snapImage()
+#cam2.snapImage()
+#
+#PIL.Image.fromarray(cam1.getImage()).save("camera1.tif")
+#PIL.Image.fromarray(cam2.getImage()).save("camera2.tif")
 
 ## Get shref
-PIL.Image.fromarray(cam2.getImage()).save("shref.tif")
+#PIL.Image.fromarray(cam2.getImage()).save("shref.tif")
 
 #reference image
-zero_image = np.asarray(PIL.Image.open("shref.tif")).astype(float)
+impath_zero = os.path.abspath("AO_code/test_images/shref.tif")
+impath_dist = os.path.abspath("AO_code/test_images/sh_pattern_no_gain89.tif")
+zero_image = np.asarray(PIL.Image.open(impath_zero)).astype(float)
+dist_image = np.asarray(PIL.Image.open(impath_dist)).astype(float)
+plt.imshow(zero_image, cmap = 'bone')
+fig = plt.figure()
+plt.imshow(dist_image, cmap = 'bone')
+plt.show()
+
+
+zero_image_copy = zero_image
+x_pos_flat, y_pos_flat = Hm.zero_positions(zero_image_copy)
+
 
 
 ##### Make list of maxima given "flat" wavefront ####
-x_pos_flat, y_pos_flat = Hm.zero_positions(zero_image)
+#plt.scatter(x_pos_flat, y_pos_flat, 1, 'r')
 
 ## Given paramters for centroid gathering
 [ny,nx] = zero_image.shape
 px_size = 5.2e-6     # width of pixels 
 f = 17.6e-3            # focal length
-r_sh = nx*px_size/2.0        # radius of shack hartmann sensor
+r_sh = ny*px_size/2.0        # radius of shack hartmann sensor #### IMPORTANT TO HAVE THIS RIGHT! Check limiting factor and estimate radius of SH sensor
 x = np.linspace(1, nx, nx)
 y = np.linspace(1, ny, ny)
 xx, yy = np.meshgrid(x, y)
 j_max= 10           # maximum fringe order
 
 # Gather centroids and slope
-#x_pos_dist, y_pos_dist = Hm.centroid_positions(x_pos_flat, y_pos_flat, image, xx, yy)
-#dWdx, dWdy = Hm.centroid2slope(x_pos_dist, y_pos_dist, x_pos_flat, y_pos_flat, px_size, f, r_sh)
+x_pos_dist, y_pos_dist = Hm.centroid_positions(x_pos_flat, y_pos_flat, dist_image, xx, yy)
 
-#G = geometry_matrix(x_pos_flat, y_pos_flat, j_max)
-#s = np.hstack(Hm.centroid2slope(x_pos_dist, y_pos_dist, x_pos_flat, y_pos_flat, px_size, f, r_sh))
-#Binv = np.linalg.pinv(geometry_matrix(x_pos_flat, y_pos_flat, j_max))
-#a = np.dot(Binv, s)
+#### Show displacement in figure
+#fig = plt.figure()
+#ax = fig.add_subplot(111)
+#ax.scatter(x_pos_flat, y_pos_flat, c='b')
+#ax.scatter(x_pos_dist, y_pos_dist, c='r')
+#plt.show()
+
+dWdx, dWdy = Hm.centroid2slope(x_pos_dist, y_pos_dist, x_pos_flat, y_pos_flat, px_size, f, r_sh)
+
+G = geometry_matrix(x_pos_flat, y_pos_flat, j_max)
+s = np.hstack(Hm.centroid2slope(x_pos_dist, y_pos_dist, x_pos_flat, y_pos_flat, px_size, f, r_sh))
+Binv = np.linalg.pinv(geometry_matrix(x_pos_flat, y_pos_flat, j_max))
+a = np.dot(Binv, s)
 
     
     
