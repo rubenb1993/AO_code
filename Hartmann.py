@@ -58,6 +58,6 @@ def centroid_centre(x_pos_flat, y_pos_flat, image, xx, yy, px_size):
     centre[0] = norm_photons * np.sum(image * xx)
     centre[1] = norm_photons * np.sum(image * yy)
     r_sh = np.amax(np.sqrt((x_pos_flat - centre[0])**2 + (y_pos_flat - centre[1])**2))
-    #r_sh *= px_size
-    return centre, r_sh
+    r_sh_real = r_sh * px_size
+    return centre, r_sh, r_sh_real
     

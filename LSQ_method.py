@@ -20,7 +20,7 @@ if "C:\Micro-Manager-1.4" not in sys.path:
 #import MMCorePy
 import PIL.Image
 import numpy as np
-from matplotlib import rc
+#from matplotlib import rc
 import Hartmann as Hm
 import Zernike as Zn
 import edac40
@@ -120,12 +120,13 @@ j_max= 10           # maximum fringe order
 ## Gather 'real' centroid positions
 zero_image = np.asarray(PIL.Image.open(impath_zero)).astype(float) #reload image due to image corruption
 x_pos_flat, y_pos_flat = Hm.centroid_positions(x_pos_flat, y_pos_flat, zero_image, xx, yy)
-centre, r_sh = Hm.centroid_centre(x_pos_flat, y_pos_flat, zero_image, xx, yy, px_size)
+centre, r_sh_px, r_sh_m = Hm.centroid_centre(x_pos_flat, y_pos_flat, zero_image, xx, yy, px_size)
+
 
 
 ### Normalize x, y
-x_pos_norm = ((x_pos_flat - centre[0]))/r_sh
-y_pos_norm = ((y_pos_flat - centre[1]))/r_sh
+x_pos_norm = ((x_pos_flat - centre[0]))/r_sh_px
+y_pos_norm = ((y_pos_flat - centre[1]))/r_sh_px
 
 ##### Plot to see that really r is between 0 and 1
 ##plt.hist([x_pos_norm**2 + y_pos_norm**2])
@@ -135,10 +136,9 @@ y_pos_norm = ((y_pos_flat - centre[1]))/r_sh
 
 # Gather centroids and slope
 x_pos_dist, y_pos_dist = Hm.centroid_positions(x_pos_flat, y_pos_flat, dist_image, xx, yy)
-dWdx, dWdy = Hm.centroid2slope(x_pos_dist, y_pos_dist, x_pos_flat, y_pos_flat, px_size, f, r_sh)
 
 G = geometry_matrix(x_pos_norm, y_pos_norm, j_max)
-s = np.hstack(Hm.centroid2slope(x_pos_dist, y_pos_dist, x_pos_flat, y_pos_flat, px_size, f, r_sh))
+s = np.hstack(Hm.centroid2slope(x_pos_dist, y_pos_dist, x_pos_flat, y_pos_flat, px_size, f, r_sh_m))
 Binv = np.linalg.pinv(geometry_matrix(x_pos_flat, y_pos_flat, j_max))
 a = np.dot(Binv, s)
 
