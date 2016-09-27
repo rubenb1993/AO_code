@@ -15,6 +15,7 @@
 #import dmctr
 import sys
 import os
+import time
 if "C:\Micro-Manager-1.4" not in sys.path:
     sys.path.append("C:\Micro-Manager-1.4")
 import MMCorePy
@@ -40,6 +41,11 @@ def geometry_matrix(x, y, j_max):
         B_brug[:len(x), jj-2] = Zn.xder_brug(x,y, power_mat, jj)
         B_brug[len(x):, jj-2] = Zn.yder_brug(x, y, power_mat, jj)
     return B_brug
+    
+def abberations2voltages(G, V2D, a, f, r_sh):
+    V2D_inv = np.linalg.pinv(V2D)
+    v = (f/r_sh) * np.dot(V2D_inv, np.dot(G, a))
+    return v
 
 def cart2pol(x, y):
     "returns polar coordinates given x and y"
@@ -139,8 +145,8 @@ x_pos_dist, y_pos_dist = Hm.centroid_positions(x_pos_flat, y_pos_flat, dist_imag
 
 G = geometry_matrix(x_pos_norm, y_pos_norm, j_max)
 s = np.hstack(Hm.centroid2slope(x_pos_dist, y_pos_dist, x_pos_flat, y_pos_flat, px_size, f, r_sh_m))
-Binv = np.linalg.pinv(geometry_matrix(x_pos_flat, y_pos_flat, j_max))
-a = np.dot(Binv, s)
+G_inv = np.linalg.pinv(G)
+a = np.dot(G_inv, s)
 
 ### make Voltages 2 displacement matrix
 mirror = edac40.OKOMirror("169.254.158.203") # Enter real IP in here
@@ -160,9 +166,9 @@ for i in range(len(voltages)):
     time.sleep(0.005)
     cam1.snapImage()
     image = cam1.getImage().astype(float)
-    centroid_i = np.hstack(Hm.centroid_positions(x_pos_flat, y_pos_flat, image, xx, yy)
+    centroid_i = np.hstack(Hm.centroid_positions(x_pos_flat, y_pos_flat, image, xx, yy))
     displacement = centroid_0 - centroid_i
-    V2D[:,i] = displacement / stroke_50 ## normalize with stroke voltages in order to get real displacement with voltages
+    V2D[:,i] = displacement / stroke_50 ## normalize with stroke voltages in order to get real displacement with voltages (assume linear relation between stroke and displacement)
 
-    
-    
+
+
