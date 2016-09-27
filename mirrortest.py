@@ -21,7 +21,7 @@ def actuators_test():
 
 def defocus_cycle():
     i=1
-    while 1:
+    while i < 100:
         i+=1
         voltage=np.sin(i%100*2*np.pi/100.0)*6.0
         voltages=np.ones(19)*voltage+6.0

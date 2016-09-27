@@ -17,7 +17,7 @@ import sys
 import os
 if "C:\Micro-Manager-1.4" not in sys.path:
     sys.path.append("C:\Micro-Manager-1.4")
-#import MMCorePy
+import MMCorePy
 import PIL.Image
 import numpy as np
 #from matplotlib import rc
@@ -61,13 +61,15 @@ def pol2cart(rho, phi):
 #mirror.set(voltages)
 
 #### Set up cameras
-#cam1=MMCorePy.CMMCore()
-#
-#cam1.loadDevice("cam","ThorlabsUSBCamera","ThorCam")
-#cam1.initializeDevice("cam")
-#cam1.setCameraDevice("cam")
-#cam1.setProperty("cam","PixelClockMHz",30)
-#cam1.setProperty("cam","Exposure",0.6)
+cam1=MMCorePy.CMMCore()
+
+cam1.loadDevice("cam","ThorlabsUSBCamera","ThorCam")
+cam1.initializeDevice("cam")
+cam1.setCameraDevice("cam")
+cam1.setProperty("cam","PixelClockMHz",334)
+cam1.setProperty("cam","Exposure",0.038)
+PIL.Image.fromarray(cam1.getImage()).save("camera1.tif")
+
 #
 #cam2=MMCorePy.CMMCore()
 #
@@ -122,8 +124,6 @@ zero_image = np.asarray(PIL.Image.open(impath_zero)).astype(float) #reload image
 x_pos_flat, y_pos_flat = Hm.centroid_positions(x_pos_flat, y_pos_flat, zero_image, xx, yy)
 centre, r_sh_px, r_sh_m = Hm.centroid_centre(x_pos_flat, y_pos_flat, zero_image, xx, yy, px_size)
 
-
-
 ### Normalize x, y
 x_pos_norm = ((x_pos_flat - centre[0]))/r_sh_px
 y_pos_norm = ((y_pos_flat - centre[1]))/r_sh_px
@@ -141,6 +141,28 @@ G = geometry_matrix(x_pos_norm, y_pos_norm, j_max)
 s = np.hstack(Hm.centroid2slope(x_pos_dist, y_pos_dist, x_pos_flat, y_pos_flat, px_size, f, r_sh_m))
 Binv = np.linalg.pinv(geometry_matrix(x_pos_flat, y_pos_flat, j_max))
 a = np.dot(Binv, s)
+
+### make Voltages 2 displacement matrix
+mirror = edac40.OKOMirror("169.254.158.203") # Enter real IP in here
+voltage_avg = 6.0
+stroke_50 = 3.0
+actuators = 19
+voltages = voltage_avg * np.ones(actuators)  # V = 0 to 12V, actuator 4 and 7 are tip and tilt
+
+V2D = np.zeros(shape = (2 * len(x_pos_flat), len(voltages))) #matrix containing the displacement of the spots due to 50% stroke 
+centroid_0 = np.hstack((x_pos_flat, y_pos_flat))
+
+for i in range(len(voltages)):
+    voltages = np.zeros(actuators)
+    voltages = voltage_avg * np.ones(actuators)
+    voltages[i] += stroke_50
+    mirror.set(voltages)
+    time.sleep(0.005)
+    cam1.snapImage()
+    image = cam1.getImage().astype(float)
+    centroid_i = np.hstack(Hm.centroid_positions(x_pos_flat, y_pos_flat, image, xx, yy)
+    displacement = centroid_0 - centroid_i
+    V2D[:,i] = displacement / stroke_50 ## normalize with stroke voltages in order to get real displacement with voltages
 
     
     
