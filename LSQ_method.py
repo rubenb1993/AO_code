@@ -60,7 +60,24 @@ def pol2cart(rho, phi):
     x = rho * np.cos(phi)
     y = rho * np.sin(phi)
     return x, y
-    
+
+def plot_zernike(j_max, a, savefigure = False, title = 'zernike_plot'):
+    ### plot zernikes according to coefficients
+    xi, yi = np.linspace(-1, 1, 300), np.linspace(-1, 1, 300)
+    xi, yi = np.meshgrid(xi, yi)
+    power_mat = Zn.Zernike_power_mat(j_max+1)
+    Z = np.zeros(xi.shape)
+    for jj in range(len(a)):
+        Z += a[jj]*Zn.Zernike_xy(xi, yi, power_mat, jj+2)
+
+    Z /= 632.8e-9
+    plt.contourf(xi, yi, Z, rstride=1, cstride=1, cmap=cm.YlGnBu_r, linewidth = 0)
+    cbar = plt.colorbar()
+    #plt.title("Defocus 10")
+    cbar.ax.set_ylabel('lambda')
+    if savefigure:
+        plt.savefig(title + '.png', bbox_inches='tight')
+    plt.show()
     
 #### Set up mirrors
 #mirror = edac40.OKOMirror("169.254.158.203") # Enter real IP in here
@@ -70,50 +87,25 @@ def pol2cart(rho, phi):
 #mirror.set(voltages)
 
 #### Set up cameras
-##cam1=MMCorePy.CMMCore()
-##
-##cam1.loadDevice("cam","IDS_uEye","IDS uEye")
-##cam1.initializeDevice("cam")
-##cam1.setCameraDevice("cam")
-##cam1.setProperty("cam","Pixel Clock",43)
-##cam1.setProperty("cam","Exposure",0.0668)
-##cam1.snapImage()
-##PIL.Image.fromarray(cam1.getImage().astype("float")).save("camera1.tif")
-##
-##cam2=MMCorePy.CMMCore()
-##
-##cam2.loadDevice("cam","IDS_uEye","IDS uEye")
-##cam2.initializeDevice("cam")
-##cam2.setCameraDevice("cam")
-##cam2.setProperty("cam","Pixel Clock", 150)
-##cam2.setProperty("cam","PixelType", '8bit mono')
-##cam2.setProperty("cam","Exposure", 0.0434)
-##cam2.snapImage()
-##PIL.Image.fromarray(cam2.getImage().astype("float")).save("camera2.tif")
-##
-###
-###cam2=MMCorePy.CMMCore()
-###
-###cam2.loadDevice("cam","ThorlabsUSBCamera","ThorCam")
-###cam2.initializeDevice("cam")
-###cam2.setCameraDevice("cam")
-###cam2.setProperty("cam","PixelClockMHz",30)
-###cam2.setProperty("cam","Exposure",0.1)
-###
-###cam1.snapImage()
-###cam2.snapImage()
-###
-###cam1.snapImage()
-###cam2.snapImage()
-###
-###PIL.Image.fromarray(cam1.getImage()).save("camera1.tif")
-###PIL.Image.fromarray(cam2.getImage()).save("camera2.tif")
-##
-#### Get shref
-###PIL.Image.fromarray(cam2.getImage()).save("shref.tif")
-##
+cam1=MMCorePy.CMMCore()
+
+cam1.loadDevice("cam","IDS_uEye","IDS uEye")
+cam1.initializeDevice("cam")
+cam1.setCameraDevice("cam")
+cam1.setProperty("cam","Pixel Clock",43)
+cam1.setProperty("cam","Exposure",0.0668)
+
+cam2=MMCorePy.CMMCore()
+
+cam2.loadDevice("cam","IDS_uEye","IDS uEye")
+cam2.initializeDevice("cam")
+cam2.setCameraDevice("cam")
+cam2.setProperty("cam","Pixel Clock", 150)
+cam2.setProperty("cam","PixelType", '8bit mono')
+cam2.setProperty("cam","Exposure", 0.0434)
+
 #reference image
-impath_zero = os.path.abspath("20160928_defocus_test/zero_image.tif")
+impath_zero = os.path.abspath("flat_mirror_reference.tif")
 impath_dist = os.path.abspath("20160928_defocus_test/defocus_10.0_sh.tif")
 zero_image = np.asarray(PIL.Image.open(impath_zero)).astype(float)
 dist_image = np.asarray(PIL.Image.open(impath_dist)).astype(float)
@@ -122,14 +114,8 @@ dist_image = np.asarray(PIL.Image.open(impath_dist)).astype(float)
 ##plt.imshow(dist_image, cmap = 'bone')
 ##plt.show()
 
-
-#zero_image_copy = zero_image
-#x_pos_flat, y_pos_flat = Hm.zero_positions(zero_image_copy)
-
-
-
 ##### Make list of maxima given "flat" wavefront ####
-x_pos_flat, y_pos_flat = Hm.zero_positions(zero_image) #initial guess of positions
+x_pos_zero, y_pos_zero = Hm.zero_positions(zero_image) #initial guess of positions
 
 ## Given paramters for centroid gathering
 [ny,nx] = zero_image.shape
@@ -142,7 +128,7 @@ j_max= 10           # maximum fringe order
 
 #### Gather 'real' centroid positions
 zero_image = np.asarray(PIL.Image.open(impath_zero)).astype(float) #reload image due to image corruption
-x_pos_flat, y_pos_flat = Hm.centroid_positions(x_pos_flat, y_pos_flat, zero_image, xx, yy)
+x_pos_flat, y_pos_flat = Hm.centroid_positions(x_pos_zero, y_pos_zero, zero_image, xx, yy)
 
 centre, r_sh_px, r_sh_m = Hm.centroid_centre(x_pos_flat, y_pos_flat, zero_image, xx, yy, px_size)
 
@@ -157,57 +143,52 @@ y_pos_norm = ((y_pos_flat - centre[1]))/r_sh_px
 ##plt.show()
 
 # Gather centroids and slope
-x_pos_dist, y_pos_dist = Hm.centroid_positions(x_pos_flat, y_pos_flat, dist_image, xx, yy)
-
-G = geometry_matrix(x_pos_norm, y_pos_norm, j_max)
-xi, yi = np.linspace(-1, 1, 300), np.linspace(-1, 1, 300)
-xi, yi = np.meshgrid(xi, yi)
-zi = griddata((x_pos_norm, y_pos_norm), G[:len(x_pos_norm),2], (xi, yi), method='linear')
+#x_pos_dist, y_pos_dist = Hm.centroid_positions(x_pos_flat, y_pos_flat, dist_image, xx, yy)
+#G = geometry_matrix(x_pos_norm, y_pos_norm, j_max)
+##zi = griddata((x_pos_norm, y_pos_norm), G[:len(x_pos_norm),2], (xi, yi), method='linear')
 ##plt.imshow(zi, vmin=G[:len(x_pos_norm),2].min(), vmax=G[:len(x_pos_norm),2].max(), origin='lower',
 ##           extent=[x_pos_norm.min(), x_pos_norm.max(), y_pos_norm.min(), y_pos_norm.max()])
 ##plt.colorbar()
 ##plt.show()
 
-s = np.hstack(Hm.centroid2slope(x_pos_dist, y_pos_dist, x_pos_flat, y_pos_flat, px_size, f, r_sh_m))
-G_inv = np.linalg.pinv(G)
-a = np.dot(G_inv, s)
-print a
+#s = np.hstack(Hm.centroid2slope(x_pos_dist, y_pos_dist, x_pos_flat, y_pos_flat, px_size, f, r_sh_m))
+#G_inv = np.linalg.pinv(G)
+#a = np.dot(G_inv, s)
 
-### plot zernikes according to coefficients
-power_mat = Zn.Zernike_power_mat(j_max+1)
-Z = np.zeros(xi.shape)
-for jj in range(len(a)):
-    Z += a[jj]*Zn.Zernike_xy(xi, yi, power_mat, jj+2)
-
-Z /= 632.8e-9
-plt.contourf(xi, yi, Z, rstride=1, cstride=1, cmap=cm.YlGnBu_r, linewidth = 0)
-cbar = plt.colorbar()
-plt.title("Defocus 10")
-cbar.ax.set_ylabel('lambda')
-plt.savefig('reconstructed_defocus_10.png', bbox_inches='tight')
+##plot_zernike(j_max, a)
 
 
-### make Voltages 2 displacement matrix
-##mirror = edac40.OKOMirror("169.254.158.203") # Enter real IP in here
-##voltage_avg = 6.0
-##stroke_50 = 3.0
-##actuators = 19
-##voltages = voltage_avg * np.ones(actuators)  # V = 0 to 12V, actuator 4 and 7 are tip and tilt
-##
-##V2D = np.zeros(shape = (2 * len(x_pos_flat), len(voltages))) #matrix containing the displacement of the spots due to 50% stroke 
-##centroid_0 = np.hstack((x_pos_flat, y_pos_flat))
-##
-##for i in range(len(voltages)):
-##    voltages = np.zeros(actuators)
-##    voltages = voltage_avg * np.ones(actuators)
-##    voltages[i] += stroke_50
-##    mirror.set(voltages)
-##    time.sleep(0.005)
-##    cam1.snapImage()
-##    image = cam1.getImage().astype(float)
-##    centroid_i = np.hstack(Hm.centroid_positions(x_pos_flat, y_pos_flat, image, xx, yy))
-##    displacement = centroid_0 - centroid_i
-##    V2D[:,i] = displacement / stroke_50 ## normalize with stroke voltages in order to get real displacement with voltages (assume linear relation between stroke and displacement)
-##
-##
-##
+# make Voltages 2 displacement matrix
+mirror = edac40.OKOMirror("169.254.158.203") # Enter real IP in here
+voltage_avg = 6.0
+stroke_50 = np.array([6.0, 3.0])
+actuators = 19
+voltages = voltage_avg * np.ones(actuators)  # V = 0 to 12V, actuator 4 and 7 are tip and tilt
+
+centroid_0 = np.hstack((x_pos_flat, y_pos_flat))
+
+for voltage in stroke_50:
+    V2D = np.zeros(shape = (2 * len(x_pos_flat), len(voltages))) #matrix containing the displacement of the spots due to 50% stroke 
+    for i in range(actuators):
+        #voltages = np.zeros(actuators)
+        print(i)
+        voltages = voltage_avg * np.ones(actuators)
+        voltages[i] += voltage
+        mirror.set(voltages)
+        time.sleep(0.1)
+        cam2.snapImage()
+        cam2.snapImage()
+        image = cam2.getImage().astype(float)
+        #PIL.Image.fromarray(image).save("actuator_volt" + str(voltage) + str(i) + ".tif")
+        centroid_i = np.hstack(Hm.centroid_positions(x_pos_flat, y_pos_flat, image, xx, yy))
+        displacement = centroid_0 - centroid_i
+        V2D[:,i] = displacement / voltage ## normalize with stroke voltages in order to get real displacement with voltages (assume linear relation between stroke and displacement)
+    if voltage == 3.0:
+        print(3)
+        V2D_3 = V2D
+    else:
+        print(1)
+        V2D_1 = V2D
+
+
+

@@ -8,7 +8,7 @@ def zero_positions(image, spotsize = 35):
     x_pos_flat = []
     y_pos_flat = []
     image[image<6] = 0
-    while(np.amax(image) > 15):
+    while(np.amax(image) > 50):
         y_max, x_max = np.unravel_index(image.argmax(), image.shape)
         x_pos_flat.append(x_max)
         y_pos_flat.append(y_max)
@@ -17,7 +17,7 @@ def zero_positions(image, spotsize = 35):
 
 ##### Gather centroids ####
 
-def centroid_positions(x_pos_flat, y_pos_flat, image, xx, yy, spot_size = 25):
+def centroid_positions(x_pos_flat, y_pos_flat, image, xx, yy, spot_size = 35):
     """Gather position (in px) of all maxima in image, given the position of maxima with a flat wavefront
     x_pos_flat & y_pos_flat: arrays with x and y coordinates of centroids
     image: tif snapshot of the SH
