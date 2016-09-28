@@ -26,6 +26,9 @@ import Hartmann as Hm
 import Zernike as Zn
 import edac40
 import matplotlib.pyplot as plt
+from matplotlib import cm
+from scipy.interpolate import griddata
+
 
 
 ### Define font for figures
@@ -67,26 +70,26 @@ def pol2cart(rho, phi):
 #mirror.set(voltages)
 
 #### Set up cameras
-cam1=MMCorePy.CMMCore()
-
-cam1.loadDevice("cam","IDS_uEye","IDS uEye")
-cam1.initializeDevice("cam")
-cam1.setCameraDevice("cam")
-cam1.setProperty("cam","Pixel Clock",43)
-cam1.setProperty("cam","Exposure",0.0668)
-cam1.snapImage()
-PIL.Image.fromarray(cam1.getImage().astype("float")).save("camera1.tif")
-
-cam2=MMCorePy.CMMCore()
-
-cam2.loadDevice("cam","IDS_uEye","IDS uEye")
-cam2.initializeDevice("cam")
-cam2.setCameraDevice("cam")
-cam2.setProperty("cam","Pixel Clock", 150)
-cam2.setProperty("cam","PixelType", '8bit mono')
-cam2.setProperty("cam","Exposure", 0.0434)
-cam2.snapImage()
-PIL.Image.fromarray(cam2.getImage().astype("float")).save("camera2.tif")
+##cam1=MMCorePy.CMMCore()
+##
+##cam1.loadDevice("cam","IDS_uEye","IDS uEye")
+##cam1.initializeDevice("cam")
+##cam1.setCameraDevice("cam")
+##cam1.setProperty("cam","Pixel Clock",43)
+##cam1.setProperty("cam","Exposure",0.0668)
+##cam1.snapImage()
+##PIL.Image.fromarray(cam1.getImage().astype("float")).save("camera1.tif")
+##
+##cam2=MMCorePy.CMMCore()
+##
+##cam2.loadDevice("cam","IDS_uEye","IDS uEye")
+##cam2.initializeDevice("cam")
+##cam2.setCameraDevice("cam")
+##cam2.setProperty("cam","Pixel Clock", 150)
+##cam2.setProperty("cam","PixelType", '8bit mono')
+##cam2.setProperty("cam","Exposure", 0.0434)
+##cam2.snapImage()
+##PIL.Image.fromarray(cam2.getImage().astype("float")).save("camera2.tif")
 ##
 ###
 ###cam2=MMCorePy.CMMCore()
@@ -110,8 +113,8 @@ PIL.Image.fromarray(cam2.getImage().astype("float")).save("camera2.tif")
 ###PIL.Image.fromarray(cam2.getImage()).save("shref.tif")
 ##
 #reference image
-impath_zero = os.path.abspath("some_defocus_sh_0.tif")
-impath_dist = os.path.abspath("some_defocus_sh_1.tif")
+impath_zero = os.path.abspath("20160928_defocus_test/zero_image.tif")
+impath_dist = os.path.abspath("20160928_defocus_test/defocus_10.0_sh.tif")
 zero_image = np.asarray(PIL.Image.open(impath_zero)).astype(float)
 dist_image = np.asarray(PIL.Image.open(impath_dist)).astype(float)
 ##plt.imshow(zero_image, cmap = 'bone')
@@ -150,17 +153,39 @@ y_pos_norm = ((y_pos_flat - centre[1]))/r_sh_px
 ##### Plot to see that really r is between 0 and 1
 ##plt.hist([x_pos_norm**2 + y_pos_norm**2])
 ##plt.show()
-plt.scatter(x_pos_norm, y_pos_norm)
-plt.show()
+##plt.scatter(x_pos_norm, y_pos_norm)
+##plt.show()
 
 # Gather centroids and slope
 x_pos_dist, y_pos_dist = Hm.centroid_positions(x_pos_flat, y_pos_flat, dist_image, xx, yy)
 
 G = geometry_matrix(x_pos_norm, y_pos_norm, j_max)
+xi, yi = np.linspace(-1, 1, 300), np.linspace(-1, 1, 300)
+xi, yi = np.meshgrid(xi, yi)
+zi = griddata((x_pos_norm, y_pos_norm), G[:len(x_pos_norm),2], (xi, yi), method='linear')
+##plt.imshow(zi, vmin=G[:len(x_pos_norm),2].min(), vmax=G[:len(x_pos_norm),2].max(), origin='lower',
+##           extent=[x_pos_norm.min(), x_pos_norm.max(), y_pos_norm.min(), y_pos_norm.max()])
+##plt.colorbar()
+##plt.show()
+
 s = np.hstack(Hm.centroid2slope(x_pos_dist, y_pos_dist, x_pos_flat, y_pos_flat, px_size, f, r_sh_m))
 G_inv = np.linalg.pinv(G)
 a = np.dot(G_inv, s)
 print a
+
+### plot zernikes according to coefficients
+power_mat = Zn.Zernike_power_mat(j_max+1)
+Z = np.zeros(xi.shape)
+for jj in range(len(a)):
+    Z += a[jj]*Zn.Zernike_xy(xi, yi, power_mat, jj+2)
+
+Z /= 632.8e-9
+plt.contourf(xi, yi, Z, rstride=1, cstride=1, cmap=cm.YlGnBu_r, linewidth = 0)
+cbar = plt.colorbar()
+plt.title("Defocus 10")
+cbar.ax.set_ylabel('lambda')
+plt.savefig('reconstructed_defocus_10.png', bbox_inches='tight')
+
 
 ### make Voltages 2 displacement matrix
 ##mirror = edac40.OKOMirror("169.254.158.203") # Enter real IP in here
