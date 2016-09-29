@@ -39,7 +39,7 @@ cam2.setProperty("cam","Exposure", 0.0434)
 cam2.snapImage()
 cam1.snapImage()
 cam2.snapImage()
-PIL.Image.fromarray(cam2.getImage().astype("float")).save("flat_mirror_reference.tif")
+PIL.Image.fromarray(cam2.getImage().astype("float")).save("flat_def_mirror_reference.tif")
 
 ##for j in range(10):
 ##    i = j*10.0

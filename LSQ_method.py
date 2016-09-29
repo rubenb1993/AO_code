@@ -105,7 +105,7 @@ cam2.setProperty("cam","PixelType", '8bit mono')
 cam2.setProperty("cam","Exposure", 0.0434)
 
 #reference image
-impath_zero = os.path.abspath("flat_mirror_reference.tif")
+impath_zero = os.path.abspath("flat_def_mirror_reference.tif")
 impath_dist = os.path.abspath("20160928_defocus_test/defocus_10.0_sh.tif")
 zero_image = np.asarray(PIL.Image.open(impath_zero)).astype(float)
 dist_image = np.asarray(PIL.Image.open(impath_dist)).astype(float)
@@ -156,39 +156,161 @@ y_pos_norm = ((y_pos_flat - centre[1]))/r_sh_px
 #a = np.dot(G_inv, s)
 
 ##plot_zernike(j_max, a)
+###make voltage 2 distance matrix
+mirror = edac40.OKOMirror("169.254.158.203") # Enter real IP in here
+
+actuators = 19
+
+voltage_0 = 3.0
+stroke = 6.0
+
+voltages = voltage_0 * np.ones(actuators)
+mirror.set(voltages)
+time.sleep(0.2)
+cam2.snapImage()
+zero_image = cam2.getImage().astype(float)
+
+x_pos_zero, y_pos_zero = Hm.zero_positions(zero_image)
+V2D = np.zeros(shape = (2 * len(x_pos_zero), actuators))
+cam2.snapImage()
+zero_image = cam2.getImage().astype(float)
+
+centroid_0 = np.hstack(Hm.centroid_positions(x_pos_zero, y_pos_zero, zero_image, xx, yy))
+for i in range(actuators):
+    print(i)
+    voltages = voltage_0 * np.ones(actuators)
+    voltages[i] += stroke
+    mirror.set(voltages)
+    time.sleep(0.2)
+    cam2.snapImage()
+    image = cam2.getImage().astype(float)
+    centroid_i = np.hstack(Hm.centroid_positions(x_pos_zero, y_pos_zero, image, xx, yy))
+    displ = centroid_0 - centroid_i
+    V2D[:, i] = displ / (stroke**2)
+
+### plot results, see if they compare
+sim_range = np.arange(-6, 6.1, 0.1)
+displacement_sim = np.outer(V2D[0,:], sim_range)
+##for jj in range(actuators):
+##    rela, = axarr[(plot_index[0][jj], plot_index[1][jj])].plot(np.arange(-6, 6.1, 0.1), displacement_sim[jj,:])
+
+voltage_avg = 6.0
+stroke_50 = np.arange(-5.5, 6.5, 1)
+actuators = 19
+voltages = 6.0 * np.ones(actuators)  # V = 0 to 12V, actuator 4 and 7 are tip and tilt
+voltages[4] = 6.0
+voltages[7] = 6.0
+mirror.set(voltages)
+time.sleep(0.2)
+cam2.snapImage()
+cam2.snapImage()
+zero_image = cam2.getImage().astype(float)
+
+## Given paramters for centroid gathering
+[ny,nx] = zero_image.shape
+px_size = 5.2e-6     # width of pixels 
+f = 17.6e-3            # focal length
+x = np.linspace(1, nx, nx)
+y = np.linspace(1, ny, ny)
+xx, yy = np.meshgrid(x, y)
+j_max= 10           # maximum fringe order
+
+
+x_pos_zero, y_pos_zero = Hm.zero_positions(zero_image)
+cam2.snapImage()
+zero_image = cam2.getImage().astype(float) #re load image due to corruption
+x_pos_flat, y_pos_flat = Hm.centroid_positions(x_pos_zero, y_pos_zero, zero_image, xx, yy)
+centroid_0 = np.hstack((x_pos_flat, y_pos_flat))
+
+
+abs_displ = np.zeros((len(stroke_50), actuators))
+displ_per_volt = np.zeros((len(stroke_50), actuators))
+f, axarr = plt.subplots(5, 4, sharex = True)
+f2, axarr2 = plt.subplots(5, 4, sharex = True)
+f.suptitle('x-displacement of centroid 0 due to actuators')
+plot_index = np.unravel_index(np.array(range(actuators)), (5, 4))
+
+for jj in range(actuators):
+    print jj
+    for ii in range(len(stroke_50)):
+        voltage = stroke_50[ii]
+        voltages = voltage_avg * np.ones(actuators)
+        voltages[jj] += voltage
+        #voltages[4] = 6.0
+        #voltages[7] = 6.0
+        mirror.set(voltages)
+        time.sleep(0.2)
+        cam2.snapImage()
+        image = cam2.getImage().astype(float)
+        centroid_i = np.hstack(Hm.centroid_positions(x_pos_flat, y_pos_flat, image, xx, yy))
+        displacement = centroid_0 - centroid_i
+        abs_displ[ii, jj] = displacement[0]
+        displ_per_volt[ii, jj] = abs_displ[ii,jj] / (voltage + 6.0)
+    abso_real, abso_sim= axarr[(plot_index[0][jj], plot_index[1][jj])].plot(stroke_50, abs_displ[:,jj], sim_range, displacement_sim[jj, :] * (sim_range + 6.0))
+    rela_real,  rela_sim= axarr2[(plot_index[0][jj], plot_index[1][jj])].plot(stroke_50, displ_per_volt[:,jj], sim_range, displacement_sim[jj,:])
+    f.legend((abso_real, abso_sim), ('real', 'sim'), 'lower right', fontsize = 9)
+    f2.legend((rela_real, rela_sim), ('real', 'sim'), 'lower right', fontsize = 9)
+    axarr[(plot_index[0][jj], plot_index[1][jj])].set_title(str(jj))
+axarr[(plot_index[0][16], plot_index[1][16])].set_xlabel('V')
+axarr[(plot_index[0][16], plot_index[1][16])].set_ylabel('x-displacement w.r.t. 0 [px]')
+axarr2[(plot_index[0][16], plot_index[1][16])].set_xlabel('V')
+axarr2[(plot_index[0][16], plot_index[1][16])].set_ylabel('displacement / V [px]')
+
+plt.show()
+
 
 
 # make Voltages 2 displacement matrix
-mirror = edac40.OKOMirror("169.254.158.203") # Enter real IP in here
-voltage_avg = 6.0
-stroke_50 = np.array([6.0, 3.0])
-actuators = 19
-voltages = voltage_avg * np.ones(actuators)  # V = 0 to 12V, actuator 4 and 7 are tip and tilt
+##mirror = edac40.OKOMirror("169.254.158.203") # Enter real IP in here
+##voltage_avg = 6.0
+##stroke_50 = [-4.0, 4.0]
+##actuators = 19
+##voltages = 6.0 * np.ones(actuators)  # V = 0 to 12V, actuator 4 and 7 are tip and tilt
+##mirror.set(voltages)
+##time.sleep(0.1)
+##cam2.snapImage()
+##cam2.snapImage()
+##zero_image = cam2.getImage().astype(float)
+##
+##centroid_0 = np.hstack(Hm.centroid_positions(x_pos_zero, y_pos_zero, zero_image, xx, yy))
+##f, axarr = plt.subplots(len(stroke_50), 1, sharex = True, sharey = True)
+##avg_disp = np.zeros(len(stroke_50))
+##for jj in range(len(stroke_50)):
+##    voltage = stroke_50[jj]
+##    V2D = np.zeros(shape = (2 * len(x_pos_flat), len(voltages))) #matrix containing the displacement of the spots due to 50% stroke 
+##    for i in range(actuators):
+##        if i == 4 or i == 7:
+##            continue
+##        #voltages = np.zeros(actuators)
+##        print(i)
+##        voltages = voltage_avg * np.ones(actuators)
+##        voltages[i] += voltage
+##        mirror.set(voltages)
+##        time.sleep(0.1)
+##        cam2.snapImage()
+##        cam2.snapImage()
+##        image = cam2.getImage().astype(float)
+##        #PIL.Image.fromarray(image).save("actuator_volt" + str(voltage) + str(i) + ".tif")
+##        centroid_i = np.hstack(Hm.centroid_positions(x_pos_flat, y_pos_flat, image, xx, yy))
+##        displacement = centroid_0 - centroid_i
+##        ## normalize with stroke voltages in order to get real displacement with voltages (assume linear relation between stroke and displacement
+##        V2D[:,i] = displacement
+##    avg_disp[jj] = np.average(V2D)
+##    axarr[jj].hist(V2D)
+##    axarr[jj].set_title('V = ' + str(voltage))
+##
+##f2 = plt.figure()
+##ax = f2.add_subplot(111)
+##ax.plot(stroke_50, avg_disp)
+##plt.show()
 
-centroid_0 = np.hstack((x_pos_flat, y_pos_flat))
 
-for voltage in stroke_50:
-    V2D = np.zeros(shape = (2 * len(x_pos_flat), len(voltages))) #matrix containing the displacement of the spots due to 50% stroke 
-    for i in range(actuators):
-        #voltages = np.zeros(actuators)
-        print(i)
-        voltages = voltage_avg * np.ones(actuators)
-        voltages[i] += voltage
-        mirror.set(voltages)
-        time.sleep(0.1)
-        cam2.snapImage()
-        cam2.snapImage()
-        image = cam2.getImage().astype(float)
-        #PIL.Image.fromarray(image).save("actuator_volt" + str(voltage) + str(i) + ".tif")
-        centroid_i = np.hstack(Hm.centroid_positions(x_pos_flat, y_pos_flat, image, xx, yy))
-        displacement = centroid_0 - centroid_i
-        V2D[:,i] = displacement / voltage ## normalize with stroke voltages in order to get real displacement with voltages (assume linear relation between stroke and displacement)
-    if voltage == 3.0:
-        print(3)
-        V2D_3 = V2D
-    else:
-        print(1)
-        V2D_1 = V2D
+##    if voltage == 10.0:
+##        print(voltage)
+##        V2D_10 = V2D
+##    else:
+##        print(voltage)
+##        V2D_5 = V2D
 
 
 
