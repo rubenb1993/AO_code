@@ -18,28 +18,46 @@ voltages = np.ones(19) * 6.0
 mirror.set(voltages)
 
 
+##cam1=MMCorePy.CMMCore()
+##
+##cam1.loadDevice("cam","IDS_uEye","IDS uEye")
+##cam1.initializeDevice("cam")
+##cam1.setCameraDevice("cam")
+##cam1.setProperty("cam","Pixel Clock",43)
+##cam1.setProperty("cam","Exposure",0.0668)
+
 cam1=MMCorePy.CMMCore()
 
 cam1.loadDevice("cam","IDS_uEye","IDS uEye")
 cam1.initializeDevice("cam")
 cam1.setCameraDevice("cam")
-cam1.setProperty("cam","Pixel Clock",43)
-cam1.setProperty("cam","Exposure",0.0668)
-##cam1.snapImage()
-##PIL.Image.fromarray(cam1.getImage().astype("float")).save("flat_mirror_reference.tif")
+cam1.setProperty("cam","Pixel Clock",150)
+cam1.setProperty("cam", "PixelType", '8bit mono')
+cam1.setProperty("cam","Exposure",0.0434)
+
+
+##cam2=MMCorePy.CMMCore()
+##
+##cam2.loadDevice("cam","IDS_uEye","IDS uEye")
+##cam2.initializeDevice("cam")
+##cam2.setCameraDevice("cam")
+##cam2.setProperty("cam","Pixel Clock", 150)
+##cam2.setProperty("cam","PixelType", '8bit mono')
+##cam2.setProperty("cam","Exposure", 0.0434)
 
 cam2=MMCorePy.CMMCore()
 
 cam2.loadDevice("cam","IDS_uEye","IDS uEye")
 cam2.initializeDevice("cam")
 cam2.setCameraDevice("cam")
-cam2.setProperty("cam","Pixel Clock", 150)
-cam2.setProperty("cam","PixelType", '8bit mono')
-cam2.setProperty("cam","Exposure", 0.0434)
+cam2.setProperty("cam","Pixel Clock", 43)
+#cam2.setProperty("cam","PixelType", '8bit mono')
+cam2.setProperty("cam","Exposure", 0.0668)
 cam2.snapImage()
 cam1.snapImage()
+PIL.Image.fromarray(cam1.getImage().astype("float")).save("cam1_test.tif")
 cam2.snapImage()
-PIL.Image.fromarray(cam2.getImage().astype("float")).save("flat_def_mirror_reference.tif")
+PIL.Image.fromarray(cam2.getImage().astype("float")).save("cam2_test.tif")
 
 ##for j in range(10):
 ##    i = j*10.0

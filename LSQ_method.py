@@ -87,22 +87,44 @@ def plot_zernike(j_max, a, savefigure = False, title = 'zernike_plot'):
 #mirror.set(voltages)
 
 #### Set up cameras
+##cam1=MMCorePy.CMMCore()
+##
+##cam1.loadDevice("cam","IDS_uEye","IDS uEye")
+##cam1.initializeDevice("cam")
+##cam1.setCameraDevice("cam")
+##cam1.setProperty("cam","Pixel Clock",43)
+##cam1.setProperty("cam","Exposure",0.0668)
+
 cam1=MMCorePy.CMMCore()
 
 cam1.loadDevice("cam","IDS_uEye","IDS uEye")
 cam1.initializeDevice("cam")
 cam1.setCameraDevice("cam")
-cam1.setProperty("cam","Pixel Clock",43)
-cam1.setProperty("cam","Exposure",0.0668)
+cam1.setProperty("cam","Pixel Clock",150)
+cam1.setProperty("cam", "PixelType", '8bit mono')
+cam1.setProperty("cam","Exposure",0.0434)
+
+
+##cam2=MMCorePy.CMMCore()
+##
+##cam2.loadDevice("cam","IDS_uEye","IDS uEye")
+##cam2.initializeDevice("cam")
+##cam2.setCameraDevice("cam")
+##cam2.setProperty("cam","Pixel Clock", 150)
+##cam2.setProperty("cam","PixelType", '8bit mono')
+##cam2.setProperty("cam","Exposure", 0.0434)
 
 cam2=MMCorePy.CMMCore()
 
 cam2.loadDevice("cam","IDS_uEye","IDS uEye")
 cam2.initializeDevice("cam")
 cam2.setCameraDevice("cam")
-cam2.setProperty("cam","Pixel Clock", 150)
-cam2.setProperty("cam","PixelType", '8bit mono')
-cam2.setProperty("cam","Exposure", 0.0434)
+cam2.setProperty("cam","Pixel Clock", 43)
+#cam2.setProperty("cam","PixelType", '8bit mono')
+cam2.setProperty("cam","Exposure", 0.0668)
+
+
+
 
 #reference image
 impath_zero = os.path.abspath("flat_def_mirror_reference.tif")
@@ -156,24 +178,24 @@ y_pos_norm = ((y_pos_flat - centre[1]))/r_sh_px
 #a = np.dot(G_inv, s)
 
 ##plot_zernike(j_max, a)
+
 ###make voltage 2 distance matrix
 mirror = edac40.OKOMirror("169.254.158.203") # Enter real IP in here
 
 actuators = 19
-
 voltage_0 = 3.0
 stroke = 6.0
 
 voltages = voltage_0 * np.ones(actuators)
 mirror.set(voltages)
 time.sleep(0.2)
-cam2.snapImage()
-zero_image = cam2.getImage().astype(float)
+cam1.snapImage()
+zero_image = cam1.getImage().astype(float)
 
 x_pos_zero, y_pos_zero = Hm.zero_positions(zero_image)
 V2D = np.zeros(shape = (2 * len(x_pos_zero), actuators))
-cam2.snapImage()
-zero_image = cam2.getImage().astype(float)
+cam1.snapImage()
+zero_image = cam1.getImage().astype(float)
 
 centroid_0 = np.hstack(Hm.centroid_positions(x_pos_zero, y_pos_zero, zero_image, xx, yy))
 for i in range(actuators):
@@ -182,14 +204,18 @@ for i in range(actuators):
     voltages[i] += stroke
     mirror.set(voltages)
     time.sleep(0.2)
-    cam2.snapImage()
-    image = cam2.getImage().astype(float)
+    cam1.snapImage()
+    image = cam1.getImage().astype(float)
     centroid_i = np.hstack(Hm.centroid_positions(x_pos_zero, y_pos_zero, image, xx, yy))
-    displ = centroid_0 - centroid_i
-    V2D[:, i] = displ / (stroke**2)
+    if i == 4 or i == 7:
+        displ = centroid_0 - centroid_i
+        V2D[:, i] = displ / (stroke**2)
+    else:
+        displ = centroid_0 - centroid_i
+        V2D[:, i] = displ / (stroke**2)
 
 ### plot results, see if they compare
-sim_range = np.arange(-6, 6.1, 0.1)
+sim_range = np.arange(-5.9, 6.1, 0.1)
 displacement_sim = np.outer(V2D[0,:], sim_range)
 ##for jj in range(actuators):
 ##    rela, = axarr[(plot_index[0][jj], plot_index[1][jj])].plot(np.arange(-6, 6.1, 0.1), displacement_sim[jj,:])
@@ -202,9 +228,9 @@ voltages[4] = 6.0
 voltages[7] = 6.0
 mirror.set(voltages)
 time.sleep(0.2)
-cam2.snapImage()
-cam2.snapImage()
-zero_image = cam2.getImage().astype(float)
+cam1.snapImage()
+cam1.snapImage()
+zero_image = cam1.getImage().astype(float)
 
 ## Given paramters for centroid gathering
 [ny,nx] = zero_image.shape
@@ -217,8 +243,8 @@ j_max= 10           # maximum fringe order
 
 
 x_pos_zero, y_pos_zero = Hm.zero_positions(zero_image)
-cam2.snapImage()
-zero_image = cam2.getImage().astype(float) #re load image due to corruption
+cam1.snapImage()
+zero_image = cam1.getImage().astype(float) #re load image due to corruption
 x_pos_flat, y_pos_flat = Hm.centroid_positions(x_pos_zero, y_pos_zero, zero_image, xx, yy)
 centroid_0 = np.hstack((x_pos_flat, y_pos_flat))
 
@@ -240,14 +266,14 @@ for jj in range(actuators):
         #voltages[7] = 6.0
         mirror.set(voltages)
         time.sleep(0.2)
-        cam2.snapImage()
-        image = cam2.getImage().astype(float)
+        cam1.snapImage()
+        image = cam1.getImage().astype(float)
         centroid_i = np.hstack(Hm.centroid_positions(x_pos_flat, y_pos_flat, image, xx, yy))
         displacement = centroid_0 - centroid_i
         abs_displ[ii, jj] = displacement[0]
-        displ_per_volt[ii, jj] = abs_displ[ii,jj] / (voltage + 6.0)
+        displ_per_volt[ii, jj] = abs_displ[ii,jj] / (voltage + 6.0)**2
     abso_real, abso_sim= axarr[(plot_index[0][jj], plot_index[1][jj])].plot(stroke_50, abs_displ[:,jj], sim_range, displacement_sim[jj, :] * (sim_range + 6.0))
-    rela_real,  rela_sim= axarr2[(plot_index[0][jj], plot_index[1][jj])].plot(stroke_50, displ_per_volt[:,jj], sim_range, displacement_sim[jj,:])
+    rela_real,  rela_sim= axarr2[(plot_index[0][jj], plot_index[1][jj])].plot(stroke_50, displ_per_volt[:,jj], sim_range, displacement_sim[jj,:] / (sim_range + 6.0))
     f.legend((abso_real, abso_sim), ('real', 'sim'), 'lower right', fontsize = 9)
     f2.legend((rela_real, rela_sim), ('real', 'sim'), 'lower right', fontsize = 9)
     axarr[(plot_index[0][jj], plot_index[1][jj])].set_title(str(jj))
