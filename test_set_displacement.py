@@ -12,7 +12,19 @@ import matplotlib.pyplot as plt
 from matplotlib import cm
 import edac40
 
-
+def set_displacement(u_dm):
+    u_dm = u_dm * 72.0
+    u_l = np.zeros(u_dm.shape)
+    u_l = np.maximum(u_dm, -72.0 * np.ones(u_l.shape))
+    u_l = np.minimum(u_dm, 72.0 * np.ones(u_l.shape))    
+    actnum=np.arange(0,19,1)
+    linacts=np.where(np.logical_or(actnum==4,actnum==7))
+    others=np.where(np.logical_and(actnum!=4,actnum!=7))
+    u_l[linacts]=(u_dm[linacts]+72.0)/12
+    u_l[others]=np.sqrt(u_dm[others]+72.0)
+    
+    mirror.set(u_l)
+    
 #### Set up cameras
 ##cam1=MMCorePy.CMMCore()
 ##
@@ -23,6 +35,7 @@ import edac40
 ##cam1.setProperty("cam","Exposure",0.0668)
 
 cam1=MMCorePy.CMMCore()
+sh = cam1
 
 cam1.loadDevice("cam","IDS_uEye","IDS uEye")
 cam1.initializeDevice("cam")
@@ -33,6 +46,7 @@ cam1.setProperty("cam","Exposure",0.0434)
 
 
 ##cam2=MMCorePy.CMMCore()
+##sh = cam2
 ##
 ##cam2.loadDevice("cam","IDS_uEye","IDS uEye")
 ##cam2.initializeDevice("cam")
@@ -40,6 +54,7 @@ cam1.setProperty("cam","Exposure",0.0434)
 ##cam2.setProperty("cam","Pixel Clock", 150)
 ##cam2.setProperty("cam","PixelType", '8bit mono')
 ##cam2.setProperty("cam","Exposure", 0.0434)
+
 
 cam2=MMCorePy.CMMCore()
 
@@ -50,24 +65,15 @@ cam2.setProperty("cam","Pixel Clock", 43)
 #cam2.setProperty("cam","PixelType", '8bit mono')
 cam2.setProperty("cam","Exposure", 0.0668)
 
-
-###reference image
-##impath_zero = os.path.abspath("flat_def_mirror_reference.tif
-##zero_image = np.asarray(PIL.Image.open(impath_zero)).astype(float)
-
 mirror = edac40.OKOMirror("169.254.158.203") # Enter real IP in here
-voltage_avg = 6.0
-stroke_50 = np.arange(-5.5, 135.5, 20.0)
-stroke_tt = np.linspace(-5.5, 6.0, num = len(stroke_50))
+
 actuators = 19
-voltages = 6.0 * np.ones(actuators)  # V = 0 to 12V, actuator 4 and 7 are tip and tilt
-voltages[4] = 6.0
-voltages[7] = 6.0
-mirror.set(voltages)
-time.sleep(0.2)
-cam1.snapImage()
-cam1.snapImage()
-zero_image = cam1.getImage().astype(float)
+u_dm_0 = np.zeros(actuators)
+u_dm_test = np.linspace(-0.9, 0.9, 10)
+set_displacement(u_dm_0)
+time.sleep(0.1)
+sh.snapImage()
+zero_image = sh.getImage().astype(float)
 
 ## Given paramters for centroid gathering
 [ny,nx] = zero_image.shape
@@ -78,54 +84,37 @@ y = np.linspace(1, ny, ny)
 xx, yy = np.meshgrid(x, y)
 j_max= 10           # maximum fringe order
 
-
+### test linearity of non-linear actuators with new set_displacement function
 x_pos_zero, y_pos_zero = Hm.zero_positions(zero_image)
-cam1.snapImage()
-zero_image = cam1.getImage().astype(float) #re load image due to corruption
+sh.snapImage()
+zero_image = sh.getImage().astype(float) #re load image due to corruption
 x_pos_flat, y_pos_flat = Hm.centroid_positions(x_pos_zero, y_pos_zero, zero_image, xx, yy)
 centroid_0 = np.hstack((x_pos_flat, y_pos_flat))
 
-
-abs_displ = np.zeros((len(stroke_50), actuators))
-displ_per_volt = np.zeros((len(stroke_50), actuators))
+abs_displ = np.zeros((len(u_dm_test), actuators))
 f, axarr = plt.subplots(5, 4, sharex = True)
-#f2, axarr2 = plt.subplots(5, 4, sharex = True)
 f.suptitle('x-displacement of centroid 0 due to actuators')
 plot_index = np.unravel_index(np.array(range(actuators)), (5, 4))
 
 for jj in range(actuators):
-    print jj
-    for ii in range(len(stroke_50)):
-        voltages = voltage_avg * np.ones(actuators)
-        
-        if jj == 4 or jj == 7:
-            voltages = voltage_avg * np.ones(actuators)
-            voltage = stroke_tt[ii]
-            voltages[jj] += voltage
-        else:
-            voltages = voltage_avg * np.ones(actuators)
-            voltage = stroke_50[ii]
-            voltages[jj] += voltage
-            voltages = np.sqrt(voltages)
-            print(voltages[jj])
-        #voltages[4] = 6.0
-        #voltages[7] = 6.0
-        mirror.set(voltages)
-        time.sleep(0.2)
-        cam1.snapImage()
-        image = cam1.getImage().astype(float)
-        centroid_i = np.hstack(Hm.centroid_positions(x_pos_flat, y_pos_flat, image, xx, yy))
-        displacement = centroid_0 - centroid_i
-        abs_displ[ii, jj] = displacement[0]
-        #displ_per_volt[ii, jj] = abs_displ[ii,jj] / (voltage + 6.0)
-    abso, = axarr[(plot_index[0][jj], plot_index[1][jj])].plot(stroke_50, abs_displ[:,jj])
-    #rela,  = axarr2[(plot_index[0][jj], plot_index[1][jj])].plot(stroke_50, displ_per_volt[:,jj])
-    f.legend((abso, ), ('|d|'), 'lower right', fontsize = 9)
-    #f2.legend((rela, ), ('d|/V^2'), 'lower right', fontsize = 9)
-    axarr[(plot_index[0][jj], plot_index[1][jj])].set_title(str(jj))
-axarr[(plot_index[0][16], plot_index[1][16])].set_xlabel('D_inf')
-axarr[(plot_index[0][16], plot_index[1][16])].set_ylabel('x-displacement w.r.t. mid-stroke [px]')
-#axarr2[(plot_index[0][16], plot_index[1][16])].set_xlabel('V')
-#axarr2[(plot_index[0][16], plot_index[1][16])].set_ylabel('displacement / V [px]')
+    if jj == 4 or jj == 7:
+        continue
+    print(jj)
+    for ii in range(len(u_dm_test)):
 
+        voltage = u_dm_test[ii]
+        voltages = np.zeros(actuators)
+        voltages[jj] += voltage
+        set_displacement(voltages)
+        time.sleep(0.2)
+        sh.snapImage()
+        image = sh.getImage().astype(float)
+        centroid_i = np.hstack(Hm.centroid_positions(x_pos_flat, y_pos_flat, image, xx, yy))
+        displ = centroid_0 - centroid_i
+        abs_displ[ii, jj] = np.sqrt(np.mean(np.square(displ)))
+    abso, = axarr[(plot_index[0][jj], plot_index[1][jj])].plot(u_dm_test, abs_displ[:,jj])
+    f.legend((abso, ), ('|d|'), 'lower right', fontsize = 9)
+    axarr[(plot_index[0][jj], plot_index[1][jj])].set_title(str(jj))
 plt.show()
+
+        
