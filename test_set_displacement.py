@@ -69,9 +69,9 @@ mirror = edac40.OKOMirror("169.254.158.203") # Enter real IP in here
 
 actuators = 19
 u_dm_0 = np.zeros(actuators)
-u_dm_test = np.linspace(-0.9, 0.9, 10)
+u_dm_test = np.linspace(-0.9, 0.9, 20)
 set_displacement(u_dm_0)
-time.sleep(0.1)
+time.sleep(0.2)
 sh.snapImage()
 zero_image = sh.getImage().astype(float)
 
@@ -93,15 +93,17 @@ centroid_0 = np.hstack((x_pos_flat, y_pos_flat))
 
 abs_displ = np.zeros((len(u_dm_test), actuators))
 f, axarr = plt.subplots(5, 4, sharex = True)
-f.suptitle('x-displacement of centroid 0 due to actuators')
+f.suptitle('RMS displacement of centroids')
 plot_index = np.unravel_index(np.array(range(actuators)), (5, 4))
 
-for jj in range(actuators):
-    if jj == 4 or jj == 7:
-        continue
+actnum=np.arange(0,19,1)
+linacts=np.where(np.logical_or(actnum==4,actnum==7))
+others=np.where(np.logical_and(actnum!=4,actnum!=7))
+
+### First the non-linear actuators
+for jj in np.nditer(others):
     print(jj)
     for ii in range(len(u_dm_test)):
-
         voltage = u_dm_test[ii]
         voltages = np.zeros(actuators)
         voltages[jj] += voltage
@@ -115,6 +117,23 @@ for jj in range(actuators):
     abso, = axarr[(plot_index[0][jj], plot_index[1][jj])].plot(u_dm_test, abs_displ[:,jj])
     f.legend((abso, ), ('|d|'), 'lower right', fontsize = 9)
     axarr[(plot_index[0][jj], plot_index[1][jj])].set_title(str(jj))
+### Then the linear actuators (due to hysteresis)
+for jj in np.nditer(linacts):    
+    for ii in range(len(u_dm_test)):
+        voltage = u_dm_test[ii]
+        voltages = np.zeros(actuators)
+        voltages[jj] += voltage
+        set_displacement(voltages)
+        time.sleep(0.2)
+        sh.snapImage()
+        image = sh.getImage().astype(float)
+        centroid_i = np.hstack(Hm.centroid_positions(x_pos_flat, y_pos_flat, image, xx, yy))
+        displ = centroid_0 - centroid_i
+        abs_displ[ii, jj] = np.sqrt(np.mean(np.square(displ)))
+    abso, = axarr[(plot_index[0][jj], plot_index[1][jj])].plot(u_dm_test, abs_displ[:,jj])
+    f.legend((abso, ), ('|d|'), 'lower right', fontsize = 9)
+    axarr[(plot_index[0][jj], plot_index[1][jj])].set_title(str(jj))
+axarr[(plot_index[0][16], plot_index[1][16])].set_xlabel('Input signal (u_dm)')
+axarr[(plot_index[0][16], plot_index[1][16])].set_ylabel('RMS displacement wrt to u_dm = 0[px]')
 plt.show()
-
         
