@@ -180,6 +180,7 @@ y_pos_norm = ((y_pos_flat - centre[1]))/r_sh_px
 ##plot_zernike(j_max, a)
 
 ###make voltage 2 distance matrix
+global mirror
 mirror = edac40.OKOMirror("169.254.158.203") # Enter real IP in here
 
 actuators = 19
