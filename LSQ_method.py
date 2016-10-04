@@ -45,8 +45,14 @@ def geometry_matrix(x, y, j_max):
         B_brug[len(x):, jj-2] = Zn.yder_brug(x, y, power_mat, jj)
     return B_brug
     
-def abberations2voltages(G, V2D, a, f, r_sh):
-    V2D_inv = np.linalg.pinv(V2D)
+def abberations2voltages(G, V2D_inv, a, f, r_sh):
+    """Given the geometry matrix of the SH sensor, the voltage2displacement matrix inverse, the wanted abberations a, focal length and physical size of the sh sensor
+    it return the voltages v for which to control the mirror.
+    input G: (2*sh_spots, zernike modes) matrix containing the x and y derivative of all zernike modes at the given sh spots
+    V2D_inv: pseudo inverse of (2*sh_spots, actuators) matrix containing the displacement of each spot when the actuator is moved
+    a: (zernike modes,) vector containing the coefficients for the desired abberation (coefficients will be small due to normalization & definition)
+    f: scalar focal length [m]
+    r_sh: scalar physical size of SH sensor [m]"""
     v = (f/r_sh) * np.dot(V2D_inv, np.dot(G, a))
     return v
 
@@ -61,7 +67,7 @@ def pol2cart(rho, phi):
     y = rho * np.sin(phi)
     return x, y
 
-def plot_zernike(j_max, a, savefigure = False, title = 'zernike_plot'):
+def plot_zernike(j_max, a, wavelength = 632.8e-9, savefigure = False, title = 'zernike_plot'):
     ### plot zernikes according to coefficients
     xi, yi = np.linspace(-1, 1, 300), np.linspace(-1, 1, 300)
     xi, yi = np.meshgrid(xi, yi)
@@ -70,7 +76,7 @@ def plot_zernike(j_max, a, savefigure = False, title = 'zernike_plot'):
     for jj in range(len(a)):
         Z += a[jj]*Zn.Zernike_xy(xi, yi, power_mat, jj+2)
 
-    Z /= 632.8e-9
+    Z /= wavelength
     plt.contourf(xi, yi, Z, rstride=1, cstride=1, cmap=cm.YlGnBu_r, linewidth = 0)
     cbar = plt.colorbar()
     #plt.title("Defocus 10")
@@ -79,13 +85,6 @@ def plot_zernike(j_max, a, savefigure = False, title = 'zernike_plot'):
         plt.savefig(title + '.png', bbox_inches='tight')
     plt.show()
     
-#### Set up mirrors
-#mirror = edac40.OKOMirror("169.254.158.203") # Enter real IP in here
-#n_act = 19
-#half_volt = 6.0
-#voltages = half_volt * np.ones(n_act)  # V = 0 to 12V
-#mirror.set(voltages)
-
 #### Set up cameras
 ##cam1=MMCorePy.CMMCore()
 ##
@@ -96,6 +95,7 @@ def plot_zernike(j_max, a, savefigure = False, title = 'zernike_plot'):
 ##cam1.setProperty("cam","Exposure",0.0668)
 
 cam1=MMCorePy.CMMCore()
+sh = cam1
 
 cam1.loadDevice("cam","IDS_uEye","IDS uEye")
 cam1.initializeDevice("cam")
@@ -106,6 +106,7 @@ cam1.setProperty("cam","Exposure",0.0434)
 
 
 ##cam2=MMCorePy.CMMCore()
+##sh = cam2
 ##
 ##cam2.loadDevice("cam","IDS_uEye","IDS uEye")
 ##cam2.initializeDevice("cam")
@@ -113,6 +114,7 @@ cam1.setProperty("cam","Exposure",0.0434)
 ##cam2.setProperty("cam","Pixel Clock", 150)
 ##cam2.setProperty("cam","PixelType", '8bit mono')
 ##cam2.setProperty("cam","Exposure", 0.0434)
+
 
 cam2=MMCorePy.CMMCore()
 
@@ -123,14 +125,14 @@ cam2.setProperty("cam","Pixel Clock", 43)
 #cam2.setProperty("cam","PixelType", '8bit mono')
 cam2.setProperty("cam","Exposure", 0.0668)
 
-
-
+global mirror
+mirror = edac40.OKOMirror("169.254.158.203") # Enter real IP in here
 
 #reference image
 impath_zero = os.path.abspath("flat_def_mirror_reference.tif")
-impath_dist = os.path.abspath("20160928_defocus_test/defocus_10.0_sh.tif")
+#impath_dist = os.path.abspath("20160928_defocus_test/defocus_10.0_sh.tif")
 zero_image = np.asarray(PIL.Image.open(impath_zero)).astype(float)
-dist_image = np.asarray(PIL.Image.open(impath_dist)).astype(float)
+#dist_image = np.asarray(PIL.Image.open(impath_dist)).astype(float)
 ##plt.imshow(zero_image, cmap = 'bone')
 ##fig = plt.figure()
 ##plt.imshow(dist_image, cmap = 'bone')
@@ -152,6 +154,7 @@ j_max= 10           # maximum fringe order
 zero_image = np.asarray(PIL.Image.open(impath_zero)).astype(float) #reload image due to image corruption
 x_pos_flat, y_pos_flat = Hm.centroid_positions(x_pos_zero, y_pos_zero, zero_image, xx, yy)
 
+zero_image = np.asarray(PIL.Image.open(impath_zero)).astype(float) #reload image due to image corruption
 centre, r_sh_px, r_sh_m = Hm.centroid_centre(x_pos_flat, y_pos_flat, zero_image, xx, yy, px_size)
 
 ### Normalize x, y
@@ -165,179 +168,23 @@ y_pos_norm = ((y_pos_flat - centre[1]))/r_sh_px
 ##plt.show()
 
 # Gather centroids and slope
-#x_pos_dist, y_pos_dist = Hm.centroid_positions(x_pos_flat, y_pos_flat, dist_image, xx, yy)
-#G = geometry_matrix(x_pos_norm, y_pos_norm, j_max)
+sh.snapImage()
+dist_image = sh.getImage().astype(float)
+x_pos_dist, y_pos_dist = Hm.centroid_positions(x_pos_flat, y_pos_flat, dist_image, xx, yy)
+G = geometry_matrix(x_pos_norm, y_pos_norm, j_max)
 ##zi = griddata((x_pos_norm, y_pos_norm), G[:len(x_pos_norm),2], (xi, yi), method='linear')
 ##plt.imshow(zi, vmin=G[:len(x_pos_norm),2].min(), vmax=G[:len(x_pos_norm),2].max(), origin='lower',
 ##           extent=[x_pos_norm.min(), x_pos_norm.max(), y_pos_norm.min(), y_pos_norm.max()])
 ##plt.colorbar()
 ##plt.show()
 
-#s = np.hstack(Hm.centroid2slope(x_pos_dist, y_pos_dist, x_pos_flat, y_pos_flat, px_size, f, r_sh_m))
-#G_inv = np.linalg.pinv(G)
-#a = np.dot(G_inv, s)
+s = np.hstack(Hm.centroid2slope(x_pos_dist, y_pos_dist, x_pos_flat, y_pos_flat, px_size, f, r_sh_m))
+G_inv = np.linalg.pinv(G)
+a = np.dot(G_inv, s)
 
 ##plot_zernike(j_max, a)
-
-###make voltage 2 distance matrix
-global mirror
-mirror = edac40.OKOMirror("169.254.158.203") # Enter real IP in here
-
-actuators = 19
-voltage_0 = 3.0
-stroke = 6.0
-
-voltages = voltage_0 * np.ones(actuators)
-mirror.set(voltages)
-time.sleep(0.2)
-cam1.snapImage()
-zero_image = cam1.getImage().astype(float)
-
-x_pos_zero, y_pos_zero = Hm.zero_positions(zero_image)
-V2D = np.zeros(shape = (2 * len(x_pos_zero), actuators))
-cam1.snapImage()
-zero_image = cam1.getImage().astype(float)
-
-centroid_0 = np.hstack(Hm.centroid_positions(x_pos_zero, y_pos_zero, zero_image, xx, yy))
-for i in range(actuators):
-    print(i)
-    voltages = voltage_0 * np.ones(actuators)
-    voltages[i] += stroke
-    mirror.set(voltages)
-    time.sleep(0.2)
-    cam1.snapImage()
-    image = cam1.getImage().astype(float)
-    centroid_i = np.hstack(Hm.centroid_positions(x_pos_zero, y_pos_zero, image, xx, yy))
-    if i == 4 or i == 7:
-        displ = centroid_0 - centroid_i
-        V2D[:, i] = displ / (stroke**2)
-    else:
-        displ = centroid_0 - centroid_i
-        V2D[:, i] = displ / (stroke**2)
-
-### plot results, see if they compare
-sim_range = np.arange(-5.9, 6.1, 0.1)
-displacement_sim = np.outer(V2D[0,:], sim_range)
-##for jj in range(actuators):
-##    rela, = axarr[(plot_index[0][jj], plot_index[1][jj])].plot(np.arange(-6, 6.1, 0.1), displacement_sim[jj,:])
-
-voltage_avg = 6.0
-stroke_50 = np.arange(-5.5, 6.5, 1)
-actuators = 19
-voltages = 6.0 * np.ones(actuators)  # V = 0 to 12V, actuator 4 and 7 are tip and tilt
-voltages[4] = 6.0
-voltages[7] = 6.0
-mirror.set(voltages)
-time.sleep(0.2)
-cam1.snapImage()
-cam1.snapImage()
-zero_image = cam1.getImage().astype(float)
-
-## Given paramters for centroid gathering
-[ny,nx] = zero_image.shape
-px_size = 5.2e-6     # width of pixels 
-f = 17.6e-3            # focal length
-x = np.linspace(1, nx, nx)
-y = np.linspace(1, ny, ny)
-xx, yy = np.meshgrid(x, y)
-j_max= 10           # maximum fringe order
-
-
-x_pos_zero, y_pos_zero = Hm.zero_positions(zero_image)
-cam1.snapImage()
-zero_image = cam1.getImage().astype(float) #re load image due to corruption
-x_pos_flat, y_pos_flat = Hm.centroid_positions(x_pos_zero, y_pos_zero, zero_image, xx, yy)
-centroid_0 = np.hstack((x_pos_flat, y_pos_flat))
-
-
-abs_displ = np.zeros((len(stroke_50), actuators))
-displ_per_volt = np.zeros((len(stroke_50), actuators))
-f, axarr = plt.subplots(5, 4, sharex = True)
-f2, axarr2 = plt.subplots(5, 4, sharex = True)
-f.suptitle('x-displacement of centroid 0 due to actuators')
-plot_index = np.unravel_index(np.array(range(actuators)), (5, 4))
-
-for jj in range(actuators):
-    print jj
-    for ii in range(len(stroke_50)):
-        voltage = stroke_50[ii]
-        voltages = voltage_avg * np.ones(actuators)
-        voltages[jj] += voltage
-        #voltages[4] = 6.0
-        #voltages[7] = 6.0
-        mirror.set(voltages)
-        time.sleep(0.2)
-        cam1.snapImage()
-        image = cam1.getImage().astype(float)
-        centroid_i = np.hstack(Hm.centroid_positions(x_pos_flat, y_pos_flat, image, xx, yy))
-        displacement = centroid_0 - centroid_i
-        abs_displ[ii, jj] = displacement[0]
-        displ_per_volt[ii, jj] = abs_displ[ii,jj] / (voltage + 6.0)**2
-    abso_real, abso_sim= axarr[(plot_index[0][jj], plot_index[1][jj])].plot(stroke_50, abs_displ[:,jj], sim_range, displacement_sim[jj, :] * (sim_range + 6.0))
-    rela_real,  rela_sim= axarr2[(plot_index[0][jj], plot_index[1][jj])].plot(stroke_50, displ_per_volt[:,jj], sim_range, displacement_sim[jj,:] / (sim_range + 6.0))
-    f.legend((abso_real, abso_sim), ('real', 'sim'), 'lower right', fontsize = 9)
-    f2.legend((rela_real, rela_sim), ('real', 'sim'), 'lower right', fontsize = 9)
-    axarr[(plot_index[0][jj], plot_index[1][jj])].set_title(str(jj))
-axarr[(plot_index[0][16], plot_index[1][16])].set_xlabel('V')
-axarr[(plot_index[0][16], plot_index[1][16])].set_ylabel('x-displacement w.r.t. 0 [px]')
-axarr2[(plot_index[0][16], plot_index[1][16])].set_xlabel('V')
-axarr2[(plot_index[0][16], plot_index[1][16])].set_ylabel('displacement / V [px]')
-
-plt.show()
-
-
-
-# make Voltages 2 displacement matrix
-##mirror = edac40.OKOMirror("169.254.158.203") # Enter real IP in here
-##voltage_avg = 6.0
-##stroke_50 = [-4.0, 4.0]
-##actuators = 19
-##voltages = 6.0 * np.ones(actuators)  # V = 0 to 12V, actuator 4 and 7 are tip and tilt
-##mirror.set(voltages)
-##time.sleep(0.1)
-##cam2.snapImage()
-##cam2.snapImage()
-##zero_image = cam2.getImage().astype(float)
 ##
-##centroid_0 = np.hstack(Hm.centroid_positions(x_pos_zero, y_pos_zero, zero_image, xx, yy))
-##f, axarr = plt.subplots(len(stroke_50), 1, sharex = True, sharey = True)
-##avg_disp = np.zeros(len(stroke_50))
-##for jj in range(len(stroke_50)):
-##    voltage = stroke_50[jj]
-##    V2D = np.zeros(shape = (2 * len(x_pos_flat), len(voltages))) #matrix containing the displacement of the spots due to 50% stroke 
-##    for i in range(actuators):
-##        if i == 4 or i == 7:
-##            continue
-##        #voltages = np.zeros(actuators)
-##        print(i)
-##        voltages = voltage_avg * np.ones(actuators)
-##        voltages[i] += voltage
-##        mirror.set(voltages)
-##        time.sleep(0.1)
-##        cam2.snapImage()
-##        cam2.snapImage()
-##        image = cam2.getImage().astype(float)
-##        #PIL.Image.fromarray(image).save("actuator_volt" + str(voltage) + str(i) + ".tif")
-##        centroid_i = np.hstack(Hm.centroid_positions(x_pos_flat, y_pos_flat, image, xx, yy))
-##        displacement = centroid_0 - centroid_i
-##        ## normalize with stroke voltages in order to get real displacement with voltages (assume linear relation between stroke and displacement
-##        V2D[:,i] = displacement
-##    avg_disp[jj] = np.average(V2D)
-##    axarr[jj].hist(V2D)
-##    axarr[jj].set_title('V = ' + str(voltage))
-##
-##f2 = plt.figure()
-##ax = f2.add_subplot(111)
-##ax.plot(stroke_50, avg_disp)
-##plt.show()
 
-
-##    if voltage == 10.0:
-##        print(voltage)
-##        V2D_10 = V2D
-##    else:
-##        print(voltage)
-##        V2D_5 = V2D
 
 
 

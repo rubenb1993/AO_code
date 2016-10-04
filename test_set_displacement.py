@@ -6,25 +6,18 @@ if "C:\Program Files\Micro-Manager-1.4" not in sys.path:
 import MMCorePy
 import PIL.Image
 import numpy as np
-#from matplotlib import rc
+from matplotlib import rc
+import mirror_control as mc
 import Hartmann as Hm
 import displacement_matrix as Dm
 import matplotlib.pyplot as plt
 from matplotlib import cm
 import edac40
+import matplotlib.ticker as ticker
 
-def set_displacement(u_dm, mirror):
-    u_dm = u_dm * 72.0
-    u_l = np.zeros(u_dm.shape)
-    u_l = np.maximum(u_dm, -72.0 * np.ones(u_l.shape))
-    u_l = np.minimum(u_dm, 72.0 * np.ones(u_l.shape))    
-    actnum=np.arange(0,19,1)
-    linacts=np.where(np.logical_or(actnum==4,actnum==7))
-    others=np.where(np.logical_and(actnum!=4,actnum!=7))
-    u_l[linacts]=(u_dm[linacts]+72.0)/12
-    u_l[others]=np.sqrt(u_dm[others]+72.0)
-    
-    mirror.set(u_l)
+# Define font for figures
+rc('font', **{'family': 'serif', 'serif': ['Computer Modern'], 'size' : 7})
+rc('text', usetex=False)
     
 #### Set up cameras
 ##cam1=MMCorePy.CMMCore()
@@ -71,8 +64,8 @@ mirror = edac40.OKOMirror("169.254.158.203") # Enter real IP in here
 
 actuators = 19
 u_dm_0 = np.zeros(actuators)
-u_dm_test = np.linspace(-0.9, 0.9, 20)
-set_displacement(u_dm_0, mirror)
+u_dm_test = np.linspace(-0.9, 0.9, 11)
+mc.set_displacement(u_dm_0, mirror)
 time.sleep(0.2)
 sh.snapImage()
 zero_image = sh.getImage().astype(float)
@@ -94,9 +87,9 @@ x_pos_flat, y_pos_flat = Hm.centroid_positions(x_pos_zero, y_pos_zero, zero_imag
 centroid_0 = np.hstack((x_pos_flat, y_pos_flat))
 
 abs_displ = np.zeros((len(u_dm_test), actuators))
-f, axarr = plt.subplots(5, 4, sharex = True)
-f.suptitle('RMS displacement of centroids')
-plot_index = np.unravel_index(np.array(range(actuators)), (5, 4))
+f, axarr = plt.subplots(10, 2, sharex = True, figsize = (5.42, 8.22) )
+#f.suptitle('RMS displacement of centroids')
+plot_index = np.unravel_index(np.array(range(actuators+1)), (10, 2))
 
 actnum=np.arange(0,19,1)
 linacts=np.where(np.logical_or(actnum==4,actnum==7))
@@ -107,7 +100,17 @@ rms_sim = np.sqrt(np.sum(np.square(V2D), axis = 0) / float(len(V2D[:, 0])))
 x_sim = np.array([-1.0, 0, 1.0])
 y_sim = np.array([rms_sim, np.zeros(len(rms_sim)), rms_sim])
 
+### Re-make zero image in order to account for hysteresis in the system CHECK IF THIS IS OK
+x_pos_zero, y_pos_zero = Hm.zero_positions(zero_image)
+mc.set_displacement(np.zeros(actuators), mirror)
+time.sleep(0.2)
+sh.snapImage()
+zero_image = sh.getImage().astype(float) #re load image due to corruption
+x_pos_flat, y_pos_flat = Hm.centroid_positions(x_pos_zero, y_pos_zero, zero_image, xx, yy)
+centroid_0 = np.hstack((x_pos_flat, y_pos_flat))
 
+
+label_size = 6
 ### First the non-linear actuators
 for jj in np.nditer(others):
     print(jj)
@@ -115,7 +118,7 @@ for jj in np.nditer(others):
         voltage = u_dm_test[ii]
         voltages = np.zeros(actuators)
         voltages[jj] += voltage
-        set_displacement(voltages, mirror)
+        mc.set_displacement(voltages, mirror)
         time.sleep(0.2)
         sh.snapImage()
         image = sh.getImage().astype(float)
@@ -123,8 +126,10 @@ for jj in np.nditer(others):
         displ = centroid_0 - centroid_i
         abs_displ[ii, jj] = np.sqrt(np.mean(np.square(displ)))
     abso, sim = axarr[(plot_index[0][jj], plot_index[1][jj])].plot(u_dm_test, abs_displ[:,jj], x_sim, y_sim[:, jj])
-    f.legend((abso, sim), ('real displacement', 'simulated displacment'), 'lower right', fontsize = 9)
-    axarr[(plot_index[0][jj], plot_index[1][jj])].set_title(str(jj))
+    axarr[(plot_index[0][jj], plot_index[1][jj])].yaxis.set_ticks(np.linspace(0, 1.5, 2))
+    axarr[(plot_index[0][jj], plot_index[1][jj])].xaxis.set_ticks(np.arange(-1, 2, 1.0))
+    
+    axarr[(plot_index[0][jj], plot_index[1][jj])].set_ylabel('act ' + str(jj), fontsize = 9)
 ### Then the linear actuators (due to hysteresis)
 for jj in np.nditer(linacts):    
     for ii in range(len(u_dm_test)):
@@ -139,9 +144,16 @@ for jj in np.nditer(linacts):
         displ = centroid_0 - centroid_i
         abs_displ[ii, jj] = np.sqrt(np.mean(np.square(displ)))
     abso, sim= axarr[(plot_index[0][jj], plot_index[1][jj])].plot(u_dm_test, abs_displ[:,jj], x_sim, y_sim[:, jj])
-    #f.legend((abso, sim), ('|d|'), 'lower right', fontsize = 9)
-    axarr[(plot_index[0][jj], plot_index[1][jj])].set_title(str(jj))
-axarr[(plot_index[0][16], plot_index[1][16])].set_xlabel('Input signal (u_dm)')
-axarr[(plot_index[0][16], plot_index[1][16])].set_ylabel('RMS displacement wrt to u_dm = 0[px]')
+    axarr[(plot_index[0][jj], plot_index[1][jj])].xaxis.set_ticks(np.arange(-1, 2, 1.0))
+    axarr[(plot_index[0][jj], plot_index[1][jj])].yaxis.set_ticks(np.linspace(0, 6.0, 3))
+    plt.rcParams['xtick.labelsize'] = label_size 
+    plt.rcParams['ytick.labelsize'] = label_size 
+    axarr[(plot_index[0][jj], plot_index[1][jj])].set_ylabel('act ' + str(jj), fontsize = 9)
+axarr[(plot_index[0][19], plot_index[1][19])].set_xlabel('Input signal (u_dm)', fontsize = 9)
+axarr[(plot_index[0][19], plot_index[1][19])].set_ylabel('dr[px]', fontsize = 9)
+axarr[(plot_index[0][19], plot_index[1][19])].xaxis.set_ticks(np.arange(-1, 2, 1.0))
+axarr[(plot_index[0][19], plot_index[1][19])].yaxis.set_ticks(np.linspace(0, 6.0, 3))
+f.legend((abso, sim), ('real displacement', 'simulated displacment'), loc = (0.6,0.07), fontsize = 9)
+f.tight_layout()
 plt.show()
         

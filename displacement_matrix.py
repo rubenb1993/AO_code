@@ -25,14 +25,14 @@ def set_displacement(u_dm, mirror):
     
     mirror.set(u_l)
 
-def gather_displacement_matrix(mirror, sh):
+def gather_displacement_matrix(mirror, sh, x_pos_zero, y_pos_zero):
     actuators = 19
     u_dm_0 = np.zeros(actuators)
     stroke = 0.5
     set_displacement(u_dm_0, mirror)
     time.sleep(0.2)
     sh.snapImage()
-    zero_image = sh.getImage().astype(float)
+    zero_image = sh.getImage().astype(float) #re load image due to corruption
 
     ## Given paramters for centroid gathering
     [ny,nx] = zero_image.shape
@@ -44,9 +44,6 @@ def gather_displacement_matrix(mirror, sh):
     j_max= 10           # maximum fringe order
 
     ### test linearity of non-linear actuators with new set_displacement function
-    x_pos_zero, y_pos_zero = Hm.zero_positions(zero_image)
-    sh.snapImage()
-    zero_image = sh.getImage().astype(float) #re load image due to corruption
     x_pos_flat, y_pos_flat = Hm.centroid_positions(x_pos_zero, y_pos_zero, zero_image, xx, yy)
     centroid_0 = np.hstack((x_pos_flat, y_pos_flat))
 
@@ -99,48 +96,3 @@ def gather_displacement_matrix(mirror, sh):
 
     V2D = (V2D_plus - V2D_min) / 2.0
     return V2D
-###### Set up cameras
-####cam1=MMCorePy.CMMCore()
-####
-####cam1.loadDevice("cam","IDS_uEye","IDS uEye")
-####cam1.initializeDevice("cam")
-####cam1.setCameraDevice("cam")
-####cam1.setProperty("cam","Pixel Clock",43)
-####cam1.setProperty("cam","Exposure",0.0668)
-##
-##cam1=MMCorePy.CMMCore()
-##sh = cam1
-##
-##cam1.loadDevice("cam","IDS_uEye","IDS uEye")
-##cam1.initializeDevice("cam")
-##cam1.setCameraDevice("cam")
-##cam1.setProperty("cam","Pixel Clock",150)
-##cam1.setProperty("cam", "PixelType", '8bit mono')
-##cam1.setProperty("cam","Exposure",0.0434)
-##
-##
-####cam2=MMCorePy.CMMCore()
-####sh = cam2
-####
-####cam2.loadDevice("cam","IDS_uEye","IDS uEye")
-####cam2.initializeDevice("cam")
-####cam2.setCameraDevice("cam")
-####cam2.setProperty("cam","Pixel Clock", 150)
-####cam2.setProperty("cam","PixelType", '8bit mono')
-####cam2.setProperty("cam","Exposure", 0.0434)
-##
-##
-##cam2=MMCorePy.CMMCore()
-##
-##cam2.loadDevice("cam","IDS_uEye","IDS uEye")
-##cam2.initializeDevice("cam")
-##cam2.setCameraDevice("cam")
-##cam2.setProperty("cam","Pixel Clock", 43)
-###cam2.setProperty("cam","PixelType", '8bit mono')
-##cam2.setProperty("cam","Exposure", 0.0668)
-##
-##mirror = edac40.OKOMirror("169.254.158.203") # Enter real IP in here
-##
-##V2D = gather_displacement_matrix()
-##
-##rms_sim = np.sum(np.square(V2D), axis = 0) / float(len(V2D[:,0]))

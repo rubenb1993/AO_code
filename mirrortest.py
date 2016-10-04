@@ -1,13 +1,10 @@
 import numpy as np
 import time
+import mirror_control as mc
 
 import edac40
 
 mirror = edac40.OKOMirror("169.254.158.203") # Enter real IP in here
-
-voltages = 6.0 * np.ones(19)  # V = 0 to 12V
-mirror.set(voltages)
-
 
 def actuators_test():
     for i in range(19):
@@ -30,6 +27,8 @@ def defocus_cycle():
         mirror.set(voltages)
 ##        print np.sin(i%100*2*np.pi/100.0)*6.0
         time.sleep(0.05)
+
+mc.set_displacement(np.zeros(19), mirror)
 ##actuators_test()        
 #defocus_cycle()   
 

@@ -58,16 +58,3 @@ cam1.snapImage()
 PIL.Image.fromarray(cam1.getImage().astype("float")).save("cam1_test.tif")
 cam2.snapImage()
 PIL.Image.fromarray(cam2.getImage().astype("float")).save("cam2_test.tif")
-
-##for j in range(10):
-##    i = j*10.0
-##    voltage = np.sin(i%100*2*np.pi/100.0)*6.0
-##    voltages = np.ones(19) * voltage + 6.0
-##    voltages[4] = 6.0
-##    voltages[7] = 6.0
-##
-##    mirror.set(voltages)
-##    time.sleep(0.005)
-##    cam2.snapImage()
-##    #PIL.Image.fromarray(cam1.getImage().astype("float")).save("defocus_" + str(i) + "_inter.tif")
-##    PIL.Image.fromarray(cam2.getImage().astype("float")).save("defocus_" + str(i) + "_sh.tif")
