@@ -1,2 +1,7 @@
 .DS_Store
 *.pdf
+*.tiff
+*.png
+*.tif
+*.db
+*.pyc
