@@ -10,10 +10,23 @@ import numpy as np
 import Hartmann as Hm
 import displacement_matrix as Dm
 import mirror_control as mc
+import LSQ_method as LSQ
 import matplotlib.pyplot as plt
 from matplotlib import cm
 import edac40
 import matplotlib.ticker as ticker
+
+def abberations2voltages(G, V2D_inv, a, f, r_sh, px_size):
+    """Given the geometry matrix of the SH sensor, the voltage2displacement matrix inverse, the wanted abberations a, focal length and physical size of the sh sensor
+    it return the voltages v for which to control the mirror.
+    input G: (2*sh_spots, zernike modes) matrix containing the x and y derivative of all zernike modes at the given sh spots
+    V2D_inv: pseudo inverse of (2*sh_spots, actuators) matrix containing the displacement of each spot when the actuator is moved
+    a: (zernike modes,) vector containing the coefficients for the desired abberation (coefficients will be small due to normalization & definition)
+    f: scalar focal length [m]
+    r_sh: scalar physical size of SH sensor [m]"""
+    v = (f/(r_sh * px_size)) * np.dot(V2D_inv, np.dot(G, a))
+    return v
+
 
 ### Define font for figures
 ##rc('font', **{'family': 'serif', 'serif': ['Computer Modern'], 'size' : 7})
@@ -69,15 +82,18 @@ u_dm = np.zeros(actuators)
 mc.set_displacement(u_dm, mirror)
 time.sleep(0.2)
 
-raw_input("block reference mirror!")
+raw_input("Did you calibrate the reference mirror? Block DM")
+sh.snapImage()
+image_control = sh.getImage().astype(float)
 
+raw_input("block reference mirror!")
 sh.snapImage()
 zero_image = sh.getImage().astype(float)
 
 ## Given paramters for centroid gathering
 [ny,nx] = zero_image.shape
-px_size = 5.2e-6     # width of pixels 
-f = 17.6e-3            # focal length
+px_size_sh = 5.2e-6     # width of pixels 
+f_sh = 17.6e-3            # focal length
 x = np.linspace(1, nx, nx)
 y = np.linspace(1, ny, ny)
 xx, yy = np.meshgrid(x, y)
@@ -85,10 +101,7 @@ j_max= 10           # maximum fringe order
 
 ### Gather centroids of current picture (u_dm 0) and voltage 2 distance (v2d) matrix
 x_pos_zero, y_pos_zero = Hm.zero_positions(zero_image)
-sh.snapImage()
-zero_image = sh.getImage().astype(float) #re load image due to corruption
-x_pos_flat, y_pos_flat = Hm.centroid_positions(x_pos_zero, y_pos_zero, zero_image, xx, yy)
-centroid_0 = np.hstack((x_pos_flat, y_pos_flat))
+
 
 actnum=np.arange(0,19,1)
 linacts=np.where(np.logical_or(actnum==4,actnum==7))
@@ -99,20 +112,52 @@ V2D_inv = np.linalg.pinv(V2D)
 #rms_sim = np.sqrt(np.sum(np.square(V2D), axis = 0) / float(len(V2D[:, 0])))
 
 #### Gather control wavefront and correct towards this wf
-impath_control = os.path.abspath("flat_mirror_reference.tif")
-image_control = np.asarray(PIL.Image.open(impath_control)).astype(float)
+#impath_control = os.path.abspath("flat_mirror_reference.tif")
+#image_control = np.asarray(PIL.Image.open(impath_control)).astype(float)
 
-centroid_control = np.hstack(Hm.centroid_positions(x_pos_zero, y_pos_zero, image_control, xx, yy))
-d = centroid_control - centroid_0
-u_dm_diff = np.dot(V2D_inv, d)
-u_dm -= u_dm_diff
-if np.any(np.abs(u_dm) > 1.0):
-    print("maximum deflection of mirror reached")
-    print(u_dm)
-mc.set_displacement(u_dm, mirror)
+scaling = 0.75
+x_pos_flat, y_pos_flat = Hm.centroid_positions(x_pos_zero, y_pos_zero, image_control, xx, yy)
+centroid_control = np.hstack((x_pos_flat, y_pos_flat))
+for i in range(20):
+    print(i)
+    sh.snapImage()
+    zero_image = sh.getImage().astype(float)
+    x_pos_flat, y_pos_flat = Hm.centroid_positions(x_pos_zero, y_pos_zero, zero_image, xx, yy)
+    centroid_0 = np.hstack((x_pos_flat, y_pos_flat))
+    d = centroid_control - centroid_0
+    u_dm_diff = np.dot(V2D_inv, d)
+    u_dm -= scaling * u_dm_diff
+    if np.any(np.abs(u_dm) > 1.0):
+        print("maximum deflection of mirror reached")
+        print(u_dm)
+    mc.set_displacement(u_dm, mirror)
+    time.sleep(0.2)
 
 raw_input('remove black paper!')
 cam2.snapImage()
 PIL.Image.fromarray(cam2.getImage().astype("float")).save("interference_pattern_after_inversion.tif")
 plt.imshow(cam2.getImage().astype('float'), cmap = 'bone')
 plt.show()
+
+##### Introduce abberations on purpose
+### Normalize x, y
+wavelength = 632e-9
+centre, r_sh_px, r_sh_m = Hm.centroid_centre(x_pos_flat, y_pos_flat, image_control, xx, yy, px_size_sh)
+x_pos_norm = ((x_pos_flat - centre[0]))/r_sh_px
+y_pos_norm = ((y_pos_flat - centre[1]))/r_sh_px
+G = LSQ.geometry_matrix(x_pos_norm, y_pos_norm, j_max)
+a = np.zeros(j_max)
+a[2] = 1 * wavelength
+v_abb = abberations2voltages(G, V2D_inv, a, f_sh, r_sh_m, px_size_sh)
+u_dm -= v_abb
+if np.any(np.abs(u_dm) > 1.0):
+    print("maximum deflection of mirror reached")
+    print(u_dm)
+mc.set_displacement(u_dm, mirror)
+time.sleep(0.2)
+cam2.snapImage()
+#PIL.Image.fromarray(cam2.getImage().astype("float")).save("interference_pattern_after_inversion.tif")
+plt.imshow(cam2.getImage().astype('float'), cmap = 'bone')
+plt.show()
+raw_input("re-cover the reference mirror")
+a_measured = LSQ.LSQ_coeff(x_pos_zero, y_pos_zero, image_control, sh, px_size_sh, f_sh, j_max) 

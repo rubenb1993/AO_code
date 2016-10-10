@@ -234,3 +234,21 @@ def Zernike_nm(n, m, rho, theta):
         #    return np.sqrt(2*n + 2) * angular * radial
     else:
         return np.zeros(shape=rho.shape)
+
+def plot_zernike(j_max, a, wavelength = 632.8e-9, savefigure = False, title = 'zernike_plot'):
+    ### plot zernikes according to coefficients
+    xi, yi = np.linspace(-1, 1, 300), np.linspace(-1, 1, 300)
+    xi, yi = np.meshgrid(xi, yi)
+    power_mat = Zn.Zernike_power_mat(j_max+1)
+    Z = np.zeros(xi.shape)
+    for jj in range(len(a)):
+        Z += a[jj]*Zn.Zernike_xy(xi, yi, power_mat, jj+2)
+
+    Z /= wavelength
+    plt.contourf(xi, yi, Z, rstride=1, cstride=1, cmap=cm.YlGnBu_r, linewidth = 0)
+    cbar = plt.colorbar()
+    #plt.title("Defocus 10")
+    cbar.ax.set_ylabel('lambda')
+    if savefigure:
+        plt.savefig(title + '.png', bbox_inches='tight')
+    plt.show()

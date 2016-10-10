@@ -45,16 +45,6 @@ def geometry_matrix(x, y, j_max):
         B_brug[len(x):, jj-2] = Zn.yder_brug(x, y, power_mat, jj)
     return B_brug
     
-def abberations2voltages(G, V2D_inv, a, f, r_sh):
-    """Given the geometry matrix of the SH sensor, the voltage2displacement matrix inverse, the wanted abberations a, focal length and physical size of the sh sensor
-    it return the voltages v for which to control the mirror.
-    input G: (2*sh_spots, zernike modes) matrix containing the x and y derivative of all zernike modes at the given sh spots
-    V2D_inv: pseudo inverse of (2*sh_spots, actuators) matrix containing the displacement of each spot when the actuator is moved
-    a: (zernike modes,) vector containing the coefficients for the desired abberation (coefficients will be small due to normalization & definition)
-    f: scalar focal length [m]
-    r_sh: scalar physical size of SH sensor [m]"""
-    v = (f/r_sh) * np.dot(V2D_inv, np.dot(G, a))
-    return v
 
 def cart2pol(x, y):
     "returns polar coordinates given x and y"
@@ -66,122 +56,101 @@ def pol2cart(rho, phi):
     x = rho * np.cos(phi)
     y = rho * np.sin(phi)
     return x, y
-
-def plot_zernike(j_max, a, wavelength = 632.8e-9, savefigure = False, title = 'zernike_plot'):
-    ### plot zernikes according to coefficients
-    xi, yi = np.linspace(-1, 1, 300), np.linspace(-1, 1, 300)
-    xi, yi = np.meshgrid(xi, yi)
-    power_mat = Zn.Zernike_power_mat(j_max+1)
-    Z = np.zeros(xi.shape)
-    for jj in range(len(a)):
-        Z += a[jj]*Zn.Zernike_xy(xi, yi, power_mat, jj+2)
-
-    Z /= wavelength
-    plt.contourf(xi, yi, Z, rstride=1, cstride=1, cmap=cm.YlGnBu_r, linewidth = 0)
-    cbar = plt.colorbar()
-    #plt.title("Defocus 10")
-    cbar.ax.set_ylabel('lambda')
-    if savefigure:
-        plt.savefig(title + '.png', bbox_inches='tight')
-    plt.show()
     
-#### Set up cameras
+###### Set up cameras
+####cam1=MMCorePy.CMMCore()
+####
+####cam1.loadDevice("cam","IDS_uEye","IDS uEye")
+####cam1.initializeDevice("cam")
+####cam1.setCameraDevice("cam")
+####cam1.setProperty("cam","Pixel Clock",43)
+####cam1.setProperty("cam","Exposure",0.0668)
+##
 ##cam1=MMCorePy.CMMCore()
+##sh = cam1
 ##
 ##cam1.loadDevice("cam","IDS_uEye","IDS uEye")
 ##cam1.initializeDevice("cam")
 ##cam1.setCameraDevice("cam")
-##cam1.setProperty("cam","Pixel Clock",43)
-##cam1.setProperty("cam","Exposure",0.0668)
-
-cam1=MMCorePy.CMMCore()
-sh = cam1
-
-cam1.loadDevice("cam","IDS_uEye","IDS uEye")
-cam1.initializeDevice("cam")
-cam1.setCameraDevice("cam")
-cam1.setProperty("cam","Pixel Clock",150)
-cam1.setProperty("cam", "PixelType", '8bit mono')
-cam1.setProperty("cam","Exposure",0.0434)
-
-
+##cam1.setProperty("cam","Pixel Clock",150)
+##cam1.setProperty("cam", "PixelType", '8bit mono')
+##cam1.setProperty("cam","Exposure",0.0434)
+##
+##
+####cam2=MMCorePy.CMMCore()
+####sh = cam2
+####
+####cam2.loadDevice("cam","IDS_uEye","IDS uEye")
+####cam2.initializeDevice("cam")
+####cam2.setCameraDevice("cam")
+####cam2.setProperty("cam","Pixel Clock", 150)
+####cam2.setProperty("cam","PixelType", '8bit mono')
+####cam2.setProperty("cam","Exposure", 0.0434)
+##
+##
 ##cam2=MMCorePy.CMMCore()
-##sh = cam2
 ##
 ##cam2.loadDevice("cam","IDS_uEye","IDS uEye")
 ##cam2.initializeDevice("cam")
 ##cam2.setCameraDevice("cam")
-##cam2.setProperty("cam","Pixel Clock", 150)
-##cam2.setProperty("cam","PixelType", '8bit mono')
-##cam2.setProperty("cam","Exposure", 0.0434)
-
-
-cam2=MMCorePy.CMMCore()
-
-cam2.loadDevice("cam","IDS_uEye","IDS uEye")
-cam2.initializeDevice("cam")
-cam2.setCameraDevice("cam")
-cam2.setProperty("cam","Pixel Clock", 43)
-#cam2.setProperty("cam","PixelType", '8bit mono')
-cam2.setProperty("cam","Exposure", 0.0668)
-
-global mirror
-mirror = edac40.OKOMirror("169.254.158.203") # Enter real IP in here
+##cam2.setProperty("cam","Pixel Clock", 43)
+###cam2.setProperty("cam","PixelType", '8bit mono')
+##cam2.setProperty("cam","Exposure", 0.0668)
+##
+##global mirror
+##mirror = edac40.OKOMirror("169.254.158.203") # Enter real IP in here
 
 #reference image
-impath_zero = os.path.abspath("flat_def_mirror_reference.tif")
+#impath_zero = os.path.abspath("flat_def_mirror_reference.tif")
 #impath_dist = os.path.abspath("20160928_defocus_test/defocus_10.0_sh.tif")
-zero_image = np.asarray(PIL.Image.open(impath_zero)).astype(float)
+#zero_image = np.asarray(PIL.Image.open(impath_zero)).astype(float)
 #dist_image = np.asarray(PIL.Image.open(impath_dist)).astype(float)
 ##plt.imshow(zero_image, cmap = 'bone')
 ##fig = plt.figure()
 ##plt.imshow(dist_image, cmap = 'bone')
 ##plt.show()
+def LSQ_coeff(x_pos_zero, y_pos_zero, zero_image, sh, px_size, f, j_max):   
+    ##### Make list of maxima given "flat" wavefront ####
+    #x_pos_zero, y_pos_zero = Hm.zero_positions(zero_image) #initial guess of positions
 
-##### Make list of maxima given "flat" wavefront ####
-x_pos_zero, y_pos_zero = Hm.zero_positions(zero_image) #initial guess of positions
+    ## Given paramters for centroid gathering
+    [ny,nx] = zero_image.shape
+    x = np.linspace(1, nx, nx)
+    y = np.linspace(1, ny, ny)
+    xx, yy = np.meshgrid(x, y)
 
-## Given paramters for centroid gathering
-[ny,nx] = zero_image.shape
-px_size = 5.2e-6     # width of pixels 
-f = 17.6e-3            # focal length
-x = np.linspace(1, nx, nx)
-y = np.linspace(1, ny, ny)
-xx, yy = np.meshgrid(x, y)
-j_max= 10           # maximum fringe order
+    #### Gather 'real' centroid positions
+    #zero_image = np.asarray(PIL.Image.open(impath_zero)).astype(float) #reload image due to image corruption
+    x_pos_flat, y_pos_flat = Hm.centroid_positions(x_pos_zero, y_pos_zero, zero_image, xx, yy)
 
-#### Gather 'real' centroid positions
-zero_image = np.asarray(PIL.Image.open(impath_zero)).astype(float) #reload image due to image corruption
-x_pos_flat, y_pos_flat = Hm.centroid_positions(x_pos_zero, y_pos_zero, zero_image, xx, yy)
+    #zero_image = np.asarray(PIL.Image.open(impath_zero)).astype(float) #reload image due to image corruption
+    centre, r_sh_px, r_sh_m = Hm.centroid_centre(x_pos_flat, y_pos_flat, zero_image, xx, yy, px_size)
 
-zero_image = np.asarray(PIL.Image.open(impath_zero)).astype(float) #reload image due to image corruption
-centre, r_sh_px, r_sh_m = Hm.centroid_centre(x_pos_flat, y_pos_flat, zero_image, xx, yy, px_size)
+    ### Normalize x, y
+    x_pos_norm = ((x_pos_flat - centre[0]))/r_sh_px
+    y_pos_norm = ((y_pos_flat - centre[1]))/r_sh_px
 
-### Normalize x, y
-x_pos_norm = ((x_pos_flat - centre[0]))/r_sh_px
-y_pos_norm = ((y_pos_flat - centre[1]))/r_sh_px
+    ##### Plot to see that really r is between 0 and 1
+    ##plt.hist([x_pos_norm**2 + y_pos_norm**2])
+    ##plt.show()
+    ##plt.scatter(x_pos_norm, y_pos_norm)
+    ##plt.show()
 
-##### Plot to see that really r is between 0 and 1
-##plt.hist([x_pos_norm**2 + y_pos_norm**2])
-##plt.show()
-##plt.scatter(x_pos_norm, y_pos_norm)
-##plt.show()
+    # Gather centroids and slope
+    sh.snapImage()
+    dist_image = sh.getImage().astype(float)
+    x_pos_dist, y_pos_dist = Hm.centroid_positions(x_pos_flat, y_pos_flat, dist_image, xx, yy)
+    G = geometry_matrix(x_pos_norm, y_pos_norm, j_max)
+    ##zi = griddata((x_pos_norm, y_pos_norm), G[:len(x_pos_norm),2], (xi, yi), method='linear')
+    ##plt.imshow(zi, vmin=G[:len(x_pos_norm),2].min(), vmax=G[:len(x_pos_norm),2].max(), origin='lower',
+    ##           extent=[x_pos_norm.min(), x_pos_norm.max(), y_pos_norm.min(), y_pos_norm.max()])
+    ##plt.colorbar()
+    ##plt.show()
 
-# Gather centroids and slope
-sh.snapImage()
-dist_image = sh.getImage().astype(float)
-x_pos_dist, y_pos_dist = Hm.centroid_positions(x_pos_flat, y_pos_flat, dist_image, xx, yy)
-G = geometry_matrix(x_pos_norm, y_pos_norm, j_max)
-##zi = griddata((x_pos_norm, y_pos_norm), G[:len(x_pos_norm),2], (xi, yi), method='linear')
-##plt.imshow(zi, vmin=G[:len(x_pos_norm),2].min(), vmax=G[:len(x_pos_norm),2].max(), origin='lower',
-##           extent=[x_pos_norm.min(), x_pos_norm.max(), y_pos_norm.min(), y_pos_norm.max()])
-##plt.colorbar()
-##plt.show()
-
-s = np.hstack(Hm.centroid2slope(x_pos_dist, y_pos_dist, x_pos_flat, y_pos_flat, px_size, f, r_sh_m))
-G_inv = np.linalg.pinv(G)
-a = np.dot(G_inv, s)
-
+    s = np.hstack(Hm.centroid2slope(x_pos_dist, y_pos_dist, x_pos_flat, y_pos_flat, px_size, f, r_sh_m))
+    G_inv = np.linalg.pinv(G)
+    a = np.dot(G_inv, s)
+    return a
 ##plot_zernike(j_max, a)
 ##
 
