@@ -132,6 +132,9 @@ for i in range(20):
         print(u_dm)
     mc.set_displacement(u_dm, mirror)
     time.sleep(0.2)
+print np.max(u_dm), np.min(u_dm)
+plt.hist(u_dm)
+plt.show()
 
 raw_input('remove black paper!')
 cam2.snapImage()
@@ -142,9 +145,16 @@ plt.show()
 ##### Introduce abberations on purpose
 ### Normalize x, y
 wavelength = 632e-9
-centre, r_sh_px, r_sh_m = Hm.centroid_centre(x_pos_flat, y_pos_flat, image_control, xx, yy, px_size_sh)
+r_sh_m = 1.924e-3 #physical radius
+r_sh_px = r_sh_m / px_size_sh #radius is px
+centre = Hm.centroid_centre(x_pos_flat, y_pos_flat, image_control, xx, yy, px_size_sh)
 x_pos_norm = ((x_pos_flat - centre[0]))/r_sh_px
 y_pos_norm = ((y_pos_flat - centre[1]))/r_sh_px
+if np.any(np.sqrt(x_pos_norm **2 + y_pos_norm**2) > 1):
+    print "somethings gone wrong in normalization"
+plt.scatter(x_pos_norm, y_pos_norm)
+plt.show()
+
 G = LSQ.geometry_matrix(x_pos_norm, y_pos_norm, j_max)
 a = np.zeros(j_max)
 a[2] = 1 * wavelength
@@ -161,3 +171,4 @@ plt.imshow(cam2.getImage().astype('float'), cmap = 'bone')
 plt.show()
 raw_input("re-cover the reference mirror")
 a_measured = LSQ.LSQ_coeff(x_pos_zero, y_pos_zero, image_control, sh, px_size_sh, f_sh, j_max) 
+print a_measured/wavelength

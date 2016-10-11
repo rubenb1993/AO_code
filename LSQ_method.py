@@ -124,8 +124,8 @@ def LSQ_coeff(x_pos_zero, y_pos_zero, zero_image, sh, px_size, f, j_max):
     x_pos_flat, y_pos_flat = Hm.centroid_positions(x_pos_zero, y_pos_zero, zero_image, xx, yy)
 
     #zero_image = np.asarray(PIL.Image.open(impath_zero)).astype(float) #reload image due to image corruption
-    centre, r_sh_px, r_sh_m = Hm.centroid_centre(x_pos_flat, y_pos_flat, zero_image, xx, yy, px_size)
-
+    centre= Hm.centroid_centre(x_pos_flat, y_pos_flat, zero_image, xx, yy, px_size)
+    
     ### Normalize x, y
     x_pos_norm = ((x_pos_flat - centre[0]))/r_sh_px
     y_pos_norm = ((y_pos_flat - centre[1]))/r_sh_px
