@@ -216,16 +216,17 @@ def Zernike_nm(n, m, rho, theta):
     out: array with values of at the points rho and theta"""
     if (n-np.abs(m)) %2 == 0 and (n >= 0) and (n >= np.abs(m)): #check if even
         s_max = int((n-abs(m))/2)
-        radial = np.zeros(shape=rho.shape)
+        radial = np.zeros(shape=rho.shape, dtype = complex_)
         for s in range(s_max + 1):
             prefactor = (-1)**s * math.factorial(n-s) / (math.factorial(s) * math.factorial((n+abs(m))/2 - s) * math.factorial((n-abs(m))/2 - s))
             radial += np.power(rho,(n - 2*s)) * prefactor
-        if m > 0:
-            angular = np.cos(m*theta)
-        elif m < 0:
-            angular = -1 * np.sin(m*theta)
-        else:
-            angular = 1
+##        if m > 0:
+##            angular = np.cos(m*theta)
+##        elif m < 0:
+##            angular = -1 * np.sin(m*theta)
+##        else:
+##            angular = 1
+        angular = np.exp(1j * m * theta)
             
         return np.sqrt((2 - (m == 0)) * (n + 1)) * angular * radial
         #if m == 0:

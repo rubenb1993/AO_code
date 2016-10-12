@@ -15,6 +15,7 @@ import matplotlib.pyplot as plt
 from matplotlib import cm
 import edac40
 import matplotlib.ticker as ticker
+import janssen
 
 def abberations2voltages(G, V2D_inv, a, f, r_sh, px_size):
     """Given the geometry matrix of the SH sensor, the voltage2displacement matrix inverse, the wanted abberations a, focal length and physical size of the sh sensor
@@ -94,6 +95,8 @@ zero_image = sh.getImage().astype(float)
 [ny,nx] = zero_image.shape
 px_size_sh = 5.2e-6     # width of pixels 
 f_sh = 17.6e-3            # focal length
+r_sh_m = 1.924e-3
+r_sh_px = r_sh_m / px_size_sh
 x = np.linspace(1, nx, nx)
 y = np.linspace(1, ny, ny)
 xx, yy = np.meshgrid(x, y)
@@ -135,6 +138,7 @@ for i in range(20):
 print np.max(u_dm), np.min(u_dm)
 plt.hist(u_dm)
 plt.show()
+print(u_dm)
 
 raw_input('remove black paper!')
 cam2.snapImage()
@@ -147,7 +151,7 @@ plt.show()
 wavelength = 632e-9
 r_sh_m = 1.924e-3 #physical radius
 r_sh_px = r_sh_m / px_size_sh #radius is px
-centre = Hm.centroid_centre(x_pos_flat, y_pos_flat, image_control, xx, yy, px_size_sh)
+centre = Hm.centroid_centre(x_pos_flat, y_pos_flat)
 x_pos_norm = ((x_pos_flat - centre[0]))/r_sh_px
 y_pos_norm = ((y_pos_flat - centre[1]))/r_sh_px
 if np.any(np.sqrt(x_pos_norm **2 + y_pos_norm**2) > 1):
@@ -155,7 +159,7 @@ if np.any(np.sqrt(x_pos_norm **2 + y_pos_norm**2) > 1):
 plt.scatter(x_pos_norm, y_pos_norm)
 plt.show()
 
-G = LSQ.geometry_matrix(x_pos_norm, y_pos_norm, j_max)
+G = LSQ.geometry_matrix_2(x_pos_norm, y_pos_norm, j_max, r_sh_px)
 a = np.zeros(j_max)
 a[2] = 1 * wavelength
 v_abb = abberations2voltages(G, V2D_inv, a, f_sh, r_sh_m, px_size_sh)
@@ -164,11 +168,14 @@ if np.any(np.abs(u_dm) > 1.0):
     print("maximum deflection of mirror reached")
     print(u_dm)
 mc.set_displacement(u_dm, mirror)
-time.sleep(0.2)
+time.sleep(0.3)
 cam2.snapImage()
 #PIL.Image.fromarray(cam2.getImage().astype("float")).save("interference_pattern_after_inversion.tif")
 plt.imshow(cam2.getImage().astype('float'), cmap = 'bone')
 plt.show()
 raw_input("re-cover the reference mirror")
-a_measured = LSQ.LSQ_coeff(x_pos_zero, y_pos_zero, image_control, sh, px_size_sh, f_sh, j_max) 
+a_measured = LSQ.LSQ_coeff(x_pos_zero, y_pos_zero, image_control, sh, px_size_sh, r_sh_px, f_sh, j_max)
+a_janss_real, a_janss_check = janssen.coeff(x_pos_zero, y_pos_zero, image_control, sh, px_size_sh, f_sh, r_sh_m, j_max)
 print a_measured/wavelength
+print a_janss_real/wavelength
+print a_janss_check/wavelength

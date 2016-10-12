@@ -3,6 +3,7 @@ import time
 import mirror_control as mc
 
 import edac40
+import mirror_control as mc
 
 mirror = edac40.OKOMirror("169.254.158.203") # Enter real IP in here
 
@@ -27,6 +28,29 @@ def defocus_cycle():
         mirror.set(voltages)
 ##        print np.sin(i%100*2*np.pi/100.0)*6.0
         time.sleep(0.05)
+
+def tt_test():
+    i = 1
+    while i:
+        i+=1
+        u_dm = np.zeros(19)
+
+        if i%4 == 0:
+            u_dm[4] = 0.5
+            mc.set_displacement(u_dm, mirror)
+            time.sleep(1)
+        elif i%4 == 1:
+            u_dm[4] = -0.5
+            mc.set_displacement(u_dm, mirror)
+            time.sleep(1)
+        elif i%4 == 2:
+            u_dm[7] = 0.5
+            mc.set_displacement(u_dm, mirror)
+            time.sleep(1)
+        else:
+            u_dm[7] = 0.5
+            mc.set_displacement(u_dm, mirror)
+            time.sleep(1)
 
 mc.set_displacement(np.zeros(19), mirror)
 ##actuators_test()        

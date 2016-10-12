@@ -36,15 +36,42 @@ from scipy.interpolate import griddata
 ##rc('text', usetex=True)
 
 ##### Create the geometry matrix #### 
-def geometry_matrix(x, y, j_max):
+def geometry_matrix(x, y, j_max, r_sh_px, spot_size = 35):
     """Creates the geometry matrix of the SH sensor according to the lecture slides of Imaging Physics (2015-2016)"""
     power_mat = Zn.Zernike_power_mat(j_max)
+    displacement = spot_size / r_sh_px
     B_brug = np.zeros((2*len(x), j_max))
+    B_brug_top = np.zeros((len(x), j_max))
+    B_brug_bot = np.zeros((len(x), j_max))
+    B_brug_left = np.zeros((len(x), j_max))
+    B_brug_right = np.zeros((len(x), j_max))
     for jj in range(2, j_max+1):
-        B_brug[:len(x), jj-2] = Zn.xder_brug(x, y, power_mat, jj)
-        B_brug[len(x):, jj-2] = Zn.yder_brug(x, y, power_mat, jj)
+        B_brug_right[:, jj-2] = Zn.xder_brug(x + displacement, y, power_mat, jj)
+        B_brug_left[:, jj-2] = Zn.xder_brug(x - displacement, y, power_mat, jj)
+        B_brug_bot[:, jj-2] = Zn.yder_brug(x, y - displacement, power_mat, jj)
+        B_brug_top[:, jj-2] = Zn.yder_brug(x, y + displacement, power_mat, jj)
+    B_brug[:len(x),:] = (B_brug_left + B_brug_right) / 2.0
+    B_brug[len(x):, :] = (B_brug_top + B_brug_bot) / 2.0
     return B_brug
-    
+
+def geometry_matrix_2(x, y, j_max, r_sh_px, spot_size = 35):
+    "using semi-gauss"
+    power_mat = Zn.Zernike_power_mat(j_max)
+    displacement = spot_size / r_sh_px
+    G_top = np.zeros((len(x), j_max))
+    G_bot = np.zeros((len(x), j_max))
+    G_left = np.zeros((len(x), j_max))
+    G_right = np.zeros((len(x), j_max))
+    G = np.zeros((2*len(x), j_max))
+    for jj in range(2, j_max+1):
+        G_left[:, jj-2] = Zn.Zernike_xy(x - displacement, y, power_mat, jj)
+        G_right[:, jj-2] = Zn.Zernike_xy(x + displacement, y, power_mat, jj)
+        G_top[:, jj-2] = Zn.Zernike_xy(x, y + displacement, power_mat, jj)
+        G_bot[:, jj-2] = Zn.Zernike_xy(x, y - displacement, power_mat, jj)
+    h = 2 * spot_size / r_sh_px
+    G[:len(x), :] = (G_right - G_left) / h
+    G[len(x):, :] = (G_top - G_bot) / h
+    return G
 
 def cart2pol(x, y):
     "returns polar coordinates given x and y"
@@ -109,11 +136,12 @@ def pol2cart(rho, phi):
 ##fig = plt.figure()
 ##plt.imshow(dist_image, cmap = 'bone')
 ##plt.show()
-def LSQ_coeff(x_pos_zero, y_pos_zero, zero_image, sh, px_size, f, j_max):   
+def LSQ_coeff(x_pos_zero, y_pos_zero, zero_image, sh, px_size, r_sh_px, f, j_max):   
     ##### Make list of maxima given "flat" wavefront ####
     #x_pos_zero, y_pos_zero = Hm.zero_positions(zero_image) #initial guess of positions
 
     ## Given paramters for centroid gathering
+    r_sh_m = px_size * r_sh_px
     [ny,nx] = zero_image.shape
     x = np.linspace(1, nx, nx)
     y = np.linspace(1, ny, ny)
@@ -124,7 +152,7 @@ def LSQ_coeff(x_pos_zero, y_pos_zero, zero_image, sh, px_size, f, j_max):
     x_pos_flat, y_pos_flat = Hm.centroid_positions(x_pos_zero, y_pos_zero, zero_image, xx, yy)
 
     #zero_image = np.asarray(PIL.Image.open(impath_zero)).astype(float) #reload image due to image corruption
-    centre= Hm.centroid_centre(x_pos_flat, y_pos_flat, zero_image, xx, yy, px_size)
+    centre= Hm.centroid_centre(x_pos_flat, y_pos_flat)
     
     ### Normalize x, y
     x_pos_norm = ((x_pos_flat - centre[0]))/r_sh_px
@@ -140,7 +168,7 @@ def LSQ_coeff(x_pos_zero, y_pos_zero, zero_image, sh, px_size, f, j_max):
     sh.snapImage()
     dist_image = sh.getImage().astype(float)
     x_pos_dist, y_pos_dist = Hm.centroid_positions(x_pos_flat, y_pos_flat, dist_image, xx, yy)
-    G = geometry_matrix(x_pos_norm, y_pos_norm, j_max)
+    G = geometry_matrix_2(x_pos_norm, y_pos_norm, j_max, r_sh_px)
     ##zi = griddata((x_pos_norm, y_pos_norm), G[:len(x_pos_norm),2], (xi, yi), method='linear')
     ##plt.imshow(zi, vmin=G[:len(x_pos_norm),2].min(), vmax=G[:len(x_pos_norm),2].max(), origin='lower',
     ##           extent=[x_pos_norm.min(), x_pos_norm.max(), y_pos_norm.min(), y_pos_norm.max()])
