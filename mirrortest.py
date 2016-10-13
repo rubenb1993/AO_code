@@ -52,7 +52,7 @@ def tt_test():
             mc.set_displacement(u_dm, mirror)
             time.sleep(1)
 
-mc.set_displacement(np.zeros(19), mirror)
+mc.set_displacement(0.0 * np.ones(19), mirror)
 ##actuators_test()        
 #defocus_cycle()   
 
