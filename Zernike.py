@@ -3,6 +3,9 @@
 import numpy as np
 from scipy import special
 import math
+import matplotlib.pyplot as plt
+from matplotlib import cm
+
 
 def cart2pol(x, y):
     "returns polar coordinates given x and y"
@@ -236,20 +239,26 @@ def Zernike_nm(n, m, rho, theta):
     else:
         return np.zeros(shape=rho.shape)
 
-def plot_zernike(j_max, a, wavelength = 632.8e-9, savefigure = False, title = 'zernike_plot'):
-    ### plot zernikes according to coefficients
-    xi, yi = np.linspace(-1, 1, 300), np.linspace(-1, 1, 300)
-    xi, yi = np.meshgrid(xi, yi)
-    power_mat = Zn.Zernike_power_mat(j_max+1)
-    Z = np.zeros(xi.shape)
-    for jj in range(len(a)):
-        Z += a[jj]*Zn.Zernike_xy(xi, yi, power_mat, jj+2)
+#def plot_zernike(j_max, a, wavelength = 632.8e-9, savefigure = False, title = 'zernike_plot'):
+### plot zernikes according to coefficients
+j_max = 5
+a = np.array([0, 0, 0, 0, 1])
+savefigure = False
+xi, yi = np.linspace(-1, 1, 300), np.linspace(-1, 1, 300)
+xi, yi = np.meshgrid(xi, yi)
+xn = np.ma.masked_where(xi**2 + yi**2 >= 1, xi)
+yn = np.ma.masked_where(xi**2 + yi**2 >= 1, yi)
+power_mat = Zernike_power_mat(j_max+1)
+Z = np.zeros(xi.shape)
+for jj in range(j_max):
+    Z += a[jj]*Zernike_xy(xi, yi, power_mat, jj+2)
 
-    Z /= wavelength
-    plt.contourf(xi, yi, Z, rstride=1, cstride=1, cmap=cm.YlGnBu_r, linewidth = 0)
-    cbar = plt.colorbar()
-    #plt.title("Defocus 10")
-    cbar.ax.set_ylabel('lambda')
-    if savefigure:
-        plt.savefig(title + '.png', bbox_inches='tight')
-    plt.show()
+#Z /= wavelength
+Zn = np.ma.masked_where(xi**2 + yi**2 >=1, Z)
+plt.contourf(xn, yn, Zn, rstride=1, cstride=1, cmap=cm.YlGnBu_r, linewidth = 0)
+cbar = plt.colorbar()
+#plt.title("Defocus 10")
+cbar.ax.set_ylabel('lambda')
+if savefigure:
+    plt.savefig(title + '.png', bbox_inches='tight')
+plt.show()
