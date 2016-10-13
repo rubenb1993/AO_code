@@ -5,6 +5,7 @@ from scipy import special
 import math
 import matplotlib.pyplot as plt
 from matplotlib import cm
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 
 def cart2pol(x, y):
@@ -42,7 +43,7 @@ def Zernike_nm_2_j(n, m):
     p = (n + np.abs(m))/2.0
     return p**2 + n - np.abs(m) + 1 + (m<0)
     
-def Zernike_power_mat(j_max, Janssen = False):
+def Zernike_power_mat(j_max):
     j_max = int(j_max)
     n_max = np.max([Zernike_j_2_nm(j)[0] for j in range(j_max+1)]) #find maximum n as n of j_max might not be the maximum n
     fmat = np.zeros((n_max+1, n_max+1, j_max)) #allocate memory
@@ -60,13 +61,8 @@ def Zernike_power_mat(j_max, Janssen = False):
         #make integers for range    
         q = int(q)
         m = int((n-abs(l)) / 2)
-        
-        if Janssen:
-            norm = np.sqrt( (2 - (m_not_brug == 0))) #precompute normalization
-        else:
-            norm = np.sqrt( (2 - (m_not_brug == 0))*(n+1)) #precompute normalization
-        
-        
+
+        norm = np.sqrt( (2 - (m_not_brug == 0)) * (n+1))
         for i in range(q+1):
             for j in range(m+1):
                 for k in range(m-j+1):
@@ -76,7 +72,7 @@ def Zernike_power_mat(j_max, Janssen = False):
                     fact *= math.factorial(n-j) / ( math.factorial(j) * math.factorial(m-j) * math.factorial(n-m-j))
                     ypow = 2 * (i+k) + p
                     xpow = n - 2 * (i+j+k) - p
-                    fmat[xpow, ypow, jj] += fact * norm     
+                    fmat[xpow, ypow, jj] += fact * norm 
     return fmat
         
 def Zernike_xy(x, y, power_mat, j):
@@ -86,7 +82,7 @@ def Zernike_xy(x, y, power_mat, j):
     j the fringe order of your polynomial
     out: Z, a matrix containing the values of Zj at points x and y
     
-    Normalized s.t. int(|Z_j|^2) = pi"""
+    Normalized s.t. int(|Z_j|^2) = pi/(n+1)"""
     x_list, y_list = np.nonzero(power_mat[...,j-1])
     Z = np.zeros(x.shape)
     for i in range(len(x_list)):
@@ -100,7 +96,7 @@ def xder_brug(x, y, power_mat, j):
     j the fringe order of your polynomial
     out: dZdx, a matrix containing the values of dZjdx at points x and y
     
-    Normalized s.t. int(|Z_j|^2) = pi"""
+    Normalized s.t. int(|Z_j|^2) = pi/(n+1)"""
     power_mat = power_mat[1:, :, :]
     x_list, y_list = np.nonzero(power_mat[...,j-1])
     dZdx = np.zeros(x.shape)
@@ -115,7 +111,7 @@ def yder_brug(x, y, power_mat, j):
     j the fringe order of your polynomial
     out: Z, a matrix containing the values of dZj/dy at points x and y
     
-    Normalized s.t. int(|Z_j|^2) = pi"""
+    Normalized s.t. int(|Z_j|^2) = pi/(n+1)"""
     power_mat = power_mat[:, 1:, :]
     x_list, y_list = np.nonzero(power_mat[...,j-1]) #-1 due to j = 1 in power_mat[...,0]
     dZdy = np.zeros(x.shape)
@@ -239,26 +235,47 @@ def Zernike_nm(n, m, rho, theta):
     else:
         return np.zeros(shape=rho.shape)
 
-#def plot_zernike(j_max, a, wavelength = 632.8e-9, savefigure = False, title = 'zernike_plot'):
+def plot_zernike(j_max, a, wavelength = 632.8e-9, savefigure = False, title = 'zernike_plot'):
 ### plot zernikes according to coefficients
-j_max = 5
-a = np.array([0, 0, 0, 0, 1])
-savefigure = False
-xi, yi = np.linspace(-1, 1, 300), np.linspace(-1, 1, 300)
-xi, yi = np.meshgrid(xi, yi)
-xn = np.ma.masked_where(xi**2 + yi**2 >= 1, xi)
-yn = np.ma.masked_where(xi**2 + yi**2 >= 1, yi)
-power_mat = Zernike_power_mat(j_max+1)
-Z = np.zeros(xi.shape)
-for jj in range(j_max):
-    Z += a[jj]*Zernike_xy(xi, yi, power_mat, jj+2)
+    xi, yi = np.linspace(-1, 1, 300), np.linspace(-1, 1, 300)
+    xi, yi = np.meshgrid(xi, yi)
+    xn = np.ma.masked_where(xi**2 + yi**2 >= 1, xi)
+    yn = np.ma.masked_where(xi**2 + yi**2 >= 1, yi)
+    power_mat = Zernike_power_mat(j_max+1)
+    Z = np.zeros(xi.shape)
+    for jj in range(j_max):
+        Z += a[jj] * Zernike_xy(xi, yi, power_mat, jj+2)
 
-#Z /= wavelength
-Zn = np.ma.masked_where(xi**2 + yi**2 >=1, Z)
-plt.contourf(xn, yn, Zn, rstride=1, cstride=1, cmap=cm.YlGnBu_r, linewidth = 0)
-cbar = plt.colorbar()
-#plt.title("Defocus 10")
-cbar.ax.set_ylabel('lambda')
-if savefigure:
-    plt.savefig(title + '.png', bbox_inches='tight')
-plt.show()
+    Z /= wavelength
+    Zn = np.ma.masked_where(xi**2 + yi**2 >=1, Z2)
+    fig = plt.figure(figsize = plt.figaspect(1.))
+    plt.contourf(xn, yn, Zn2, rstride=1, cstride=1, cmap=cm.gray, linewidth = 0)
+    cbar = plt.colorbar()
+    #plt.title("Defocus 10")
+    cbar.ax.set_ylabel('lambda')
+    if savefigure:
+        plt.savefig(title + '.png', bbox_inches='tight')
+
+def plot_interferogram(j_max, a, ax = None, wavelength = 632.8e-9, savefigure = False, title = 'Interferogram according to a'):
+    if ax is None:
+        ax = plt.gca()
+    xi, yi = np.linspace(-1, 1, 300), np.linspace(-1, 1, 300)
+    xi, yi = np.meshgrid(xi, yi)
+    xn = np.ma.masked_where(xi**2 + yi**2 >= 1, xi)
+    yn = np.ma.masked_where(xi**2 + yi**2 >= 1, yi)
+    power_mat = Zernike_power_mat(j_max+1)
+    Z = np.zeros(xi.shape)
+    for jj in range(j_max):
+        Z += a[jj] * Zernike_xy(xi, yi, power_mat, jj+2)
+
+    Z /= wavelength
+    fig = plt.figure(figsize = plt.figaspect(1.))
+    Zn = np.ma.masked_where(xi**2 + yi**2 >=1, Z)    
+    phase = np.abs( np.abs(Zn) - np.floor(np.abs(Zn)))* 2 * np.pi
+    Intens = np.cos(phase/2.0)**2
+    interferogram = ax.contourf(xn, yn, Intens, rstride = 1, cstride = 1, cmap=cm.gray, linewidth=0)
+    divider = make_axes_locatable(ax)
+    cax = divider.append_axes("right", size="5%", pad=0.1)
+    cbar = plt.colorbar(interferogram, cax=cax)
+    return interferogram
+    #plt.show()

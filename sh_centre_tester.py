@@ -74,7 +74,7 @@ dm_zeros = Hm.zero_positions(image_zeros)
 sh.snapImage()
 image_zeros = sh.getImage().astype(float)
 points = Hm.centroid_positions(dm_zeros[0][:], dm_zeros[1][:], image_zeros, xx, yy)
-centres = Hm.centroid_centre(points[0][:], points[1][:], image_zeros, xx, yy, px_size_sh)
+centres = Hm.centroid_centre(points[0][:], points[1][:])
 centre_from_peaks = np.zeros(2)
 centre_from_peaks[0] = np.sum(points[0][:]) / len(dm_zeros[0][:])
 centre_from_peaks[1] = np.sum(points[1][:]) / len(dm_zeros[1][:])
@@ -84,10 +84,19 @@ y_pos_norm = ((points[1][:] - centres[1]))/r_sh_px
 
 image_zeros[image_zeros < 4] = 0
 image_zeros[image_zeros > 4] = 255
-centres2 = Hm.centroid_centre(points[0][:], points[1][:], image_zeros, xx, yy, px_size_sh)
-print(centres2)
+centres2 = Hm.centroid_centre(points[0][:], points[1][:])
+
+### look at points well within cirlce
+inside = np.where(np.sqrt((points[0][:]-centre_from_peaks[0])**2 + (points[1][:]-centre_from_peaks[1])**2) <= 335)
+
+
+outside = np.where(np.sqrt((points[0][:]-centre_from_peaks[0])**2 + (points[1][:]-centre_from_peaks[1])**2) > 345)
+points_filtered = np.array(points)[:,np.array(inside)]
+points_filtered_inverted = np.array(points)[:, np.array(outside)]
+
 fig, ax = plt.subplots(figsize = plt.figaspect(1.))
-plt.scatter(points[0][:], points[1][:])
+plt.scatter(points_filtered[0][:], points_filtered[1][:])
+plt.scatter(points_filtered_inverted[0][:], points_filtered_inverted[1][:], color = 'r')
 plt.scatter(centres[0], centres[1], color = 'r')
 plt.scatter(centres2[0], centres2[1], color = 'g')
 plt.scatter(centre_from_peaks[0], centre_from_peaks[1], color = 'k')

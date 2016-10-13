@@ -9,6 +9,7 @@ import numpy as np
 #from matplotlib import rc
 import Hartmann as Hm
 import displacement_matrix as Dm
+import Zernike as Zn
 import mirror_control as mc
 import LSQ_method as LSQ
 import matplotlib.pyplot as plt
@@ -156,12 +157,10 @@ x_pos_norm = ((x_pos_flat - centre[0]))/r_sh_px
 y_pos_norm = ((y_pos_flat - centre[1]))/r_sh_px
 if np.any(np.sqrt(x_pos_norm **2 + y_pos_norm**2) > 1):
     print "somethings gone wrong in normalization"
-plt.scatter(x_pos_norm, y_pos_norm)
-plt.show()
 
 G = LSQ.geometry_matrix_2(x_pos_norm, y_pos_norm, j_max, r_sh_px)
 a = np.zeros(j_max)
-a[2] = 1 * wavelength
+a[2] = 0.5 * wavelength
 v_abb = abberations2voltages(G, V2D_inv, a, f_sh, r_sh_m, px_size_sh)
 u_dm -= v_abb
 if np.any(np.abs(u_dm) > 1.0):
@@ -171,11 +170,15 @@ mc.set_displacement(u_dm, mirror)
 time.sleep(0.3)
 cam2.snapImage()
 #PIL.Image.fromarray(cam2.getImage().astype("float")).save("interference_pattern_after_inversion.tif")
-plt.imshow(cam2.getImage().astype('float'), cmap = 'bone')
-plt.show()
+#plt.imshow(cam2.getImage().astype('float'), cmap = 'bone')
+#plt.show()
 raw_input("re-cover the reference mirror")
 a_measured = LSQ.LSQ_coeff(x_pos_zero, y_pos_zero, image_control, sh, px_size_sh, r_sh_px, f_sh, j_max)
-a_janss_real, a_janss_check = janssen.coeff(x_pos_zero, y_pos_zero, image_control, sh, px_size_sh, f_sh, r_sh_m, j_max)
-print a_measured/wavelength
-print a_janss_real/wavelength
-print a_janss_check/wavelength
+
+plt.imshow(cam2.getImage().astype('float'), cmap = 'bone')
+f, (ax1, ax2) = plt.subplots(1, 2, figsize=(plt.figaspect(0.5)))
+ax1.imshow(cam2.getImage().astype('float'), cmap = 'bone')
+ax1.set_title('measured interferogram')
+Zn.plot_interferogram(j_max, a_measured, ax2)
+ax2.set_title('interferogram simulated from measured coefficients')
+#a_janss_real, a_janss_check = janssen.coeff(x_pos_zero, y_pos_zero, image_control, sh, px_size_sh, f_sh, r_sh_m, j_max)
