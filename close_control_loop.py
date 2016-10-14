@@ -29,6 +29,11 @@ def abberations2voltages(G, V2D_inv, a, f, r_sh, px_size):
     v = (f/(r_sh * px_size)) * np.dot(V2D_inv, np.dot(G, a))
     return v
 
+def filter_positions(inside, *args):
+    new_positions = []
+    for arg in args:
+        new_positions.append(np.array(arg)[inside])
+    return new_positions
 
 ### Define font for figures
 ##rc('font', **{'family': 'serif', 'serif': ['Computer Modern'], 'size' : 7})
@@ -76,7 +81,7 @@ cam2.setProperty("cam","Pixel Clock", 43)
 cam2.setProperty("cam","Exposure", 0.0668)
 
 global mirror
-mirror = edac40.OKOMirror("169.254.158.203") # Enter real IP in here
+mirror = edac40.OKOMirror("169.254.69.72") # Enter real IP in here
 
 actuators = 19
 u_dm = np.zeros(actuators)
@@ -94,24 +99,43 @@ zero_image = sh.getImage().astype(float)
 
 ## Given paramters for centroid gathering
 [ny,nx] = zero_image.shape
-px_size_sh = 5.2e-6     # width of pixels 
+px_size_sh = 5.2e-6     # width of pixels
+px_size_int = 5.2e-6
 f_sh = 17.6e-3            # focal length
-r_sh_m = 1.924e-3
+r_int_px = 325
+r_sh_m = r_int_px * px_size_int
 r_sh_px = r_sh_m / px_size_sh
 x = np.linspace(1, nx, nx)
 y = np.linspace(1, ny, ny)
 xx, yy = np.meshgrid(x, y)
 j_max= 10           # maximum fringe order
+### Normalize x, y
+wavelength = 632e-9
+#r_sh_m = 1.924e-3 #physical radius
+#r_sh_px = r_sh_m / px_size_sh #radius is px
 
 ### Gather centroids of current picture (u_dm 0) and voltage 2 distance (v2d) matrix
 x_pos_zero, y_pos_zero = Hm.zero_positions(zero_image)
+x_pos_flat, y_pos_flat = Hm.centroid_positions(x_pos_zero, y_pos_zero, image_control, xx, yy)
+centre = Hm.centroid_centre(x_pos_flat, y_pos_flat)
+x_pos_norm = ((x_pos_flat - centre[0]))/r_sh_px
+y_pos_norm = ((y_pos_flat - centre[1]))/r_sh_px
+inside = np.where(np.sqrt(x_pos_norm**2 + y_pos_norm**2) <= (1 - (35.0/r_sh_px))) #35 is the half the width of the pixel box aroudn a centroid and r_sh_px is the scaling factor
+x_pos_zero_f, y_pos_zero_f, x_pos_flat_f, y_pos_flat_f, x_pos_norm_f, y_pos_norm_f = filter_positions(inside, x_pos_zero, y_pos_zero, x_pos_flat, y_pos_flat, x_pos_norm, y_pos_norm)
 
-
+f3 = plt.figure(figsize = plt.figaspect(1.))
+ax3 = f3.add_subplot(1,1,1)
+ax3.scatter(x_pos_norm, y_pos_norm, color='b')
+ax3.scatter(x_pos_norm_f, y_pos_norm_f, color ='r')
+#plt.scatter(centre[0],centre[1], color = 'k')
+circle1 = plt.Circle([0,0] , 1, color = 'k', fill=False)
+ax3.add_artist(circle1)
+plt.show()
 actnum=np.arange(0,19,1)
 linacts=np.where(np.logical_or(actnum==4,actnum==7))
 others=np.where(np.logical_and(actnum!=4,actnum!=7))
 
-V2D = Dm.gather_displacement_matrix(mirror, sh, x_pos_zero, y_pos_zero)
+V2D = Dm.gather_displacement_matrix(mirror, sh, x_pos_zero_f, y_pos_zero_f)
 V2D_inv = np.linalg.pinv(V2D)
 #rms_sim = np.sqrt(np.sum(np.square(V2D), axis = 0) / float(len(V2D[:, 0])))
 
@@ -120,23 +144,19 @@ V2D_inv = np.linalg.pinv(V2D)
 #image_control = np.asarray(PIL.Image.open(impath_control)).astype(float)
 
 scaling = 0.75
-x_pos_flat, y_pos_flat = Hm.centroid_positions(x_pos_zero, y_pos_zero, image_control, xx, yy)
-centroid_control = np.hstack((x_pos_flat, y_pos_flat))
+##x_pos_flat, y_pos_flat = Hm.centroid_positions(x_pos_zero, y_pos_zero, image_control, xx, yy)
+centroid_control = np.hstack((x_pos_flat_f, y_pos_flat_f))
 for i in range(20):
     print(i)
     sh.snapImage()
     zero_image = sh.getImage().astype(float)
-    x_pos_flat, y_pos_flat = Hm.centroid_positions(x_pos_zero, y_pos_zero, zero_image, xx, yy)
-    centroid_0 = np.hstack((x_pos_flat, y_pos_flat))
+    x_pos_flat_f, y_pos_flat_f = Hm.centroid_positions(x_pos_zero_f, y_pos_zero_f, zero_image, xx, yy)
+    centroid_0 = np.hstack((x_pos_flat_f, y_pos_flat_f))
     d = centroid_control - centroid_0
     u_dm_diff = np.dot(V2D_inv, d)
     u_dm -= scaling * u_dm_diff
-    if np.any(np.abs(u_dm) > 1.0):
-        print("maximum deflection of mirror reached")
-        print(u_dm)
     mc.set_displacement(u_dm, mirror)
     time.sleep(0.2)
-print np.max(u_dm), np.min(u_dm)
 plt.hist(u_dm)
 plt.show()
 print(u_dm)
@@ -147,22 +167,22 @@ PIL.Image.fromarray(cam2.getImage().astype("float")).save("interference_pattern_
 plt.imshow(cam2.getImage().astype('float'), cmap = 'bone')
 plt.show()
 
-##### Introduce abberations on purpose
-### Normalize x, y
-wavelength = 632e-9
-r_sh_m = 1.924e-3 #physical radius
-r_sh_px = r_sh_m / px_size_sh #radius is px
-centre = Hm.centroid_centre(x_pos_flat, y_pos_flat)
-x_pos_norm = ((x_pos_flat - centre[0]))/r_sh_px
-y_pos_norm = ((y_pos_flat - centre[1]))/r_sh_px
-if np.any(np.sqrt(x_pos_norm **2 + y_pos_norm**2) > 1):
+if np.any(np.sqrt(x_pos_norm_f **2 + y_pos_norm_f**2) > 1):
     print "somethings gone wrong in normalization"
 
-G = LSQ.geometry_matrix_2(x_pos_norm, y_pos_norm, j_max, r_sh_px)
+
+G = LSQ.geometry_matrix_2(x_pos_norm_f, y_pos_norm_f, j_max, r_sh_px)
 a = np.zeros(j_max)
 a[2] = 0.5 * wavelength
 v_abb = abberations2voltages(G, V2D_inv, a, f_sh, r_sh_m, px_size_sh)
 u_dm -= v_abb
+##u_dm_minus = u_dm - v_abb
+##u_dm_plus = u_dm + v_abb
+##if np.abs(np.average(u_dm_plus)) > np.abs(np.average(u_dm_minus)):
+##    u_dm = u_dm_minus
+##else:
+##    u_dm = u_dm_plus
+
 if np.any(np.abs(u_dm) > 1.0):
     print("maximum deflection of mirror reached")
     print(u_dm)
@@ -173,12 +193,27 @@ cam2.snapImage()
 #plt.imshow(cam2.getImage().astype('float'), cmap = 'bone')
 #plt.show()
 raw_input("re-cover the reference mirror")
-a_measured = LSQ.LSQ_coeff(x_pos_zero, y_pos_zero, image_control, sh, px_size_sh, r_sh_px, f_sh, j_max)
+a_measured = LSQ.LSQ_coeff(x_pos_zero_f, y_pos_zero_f, image_control, sh, px_size_sh, r_sh_px, f_sh, j_max)
 
 plt.imshow(cam2.getImage().astype('float'), cmap = 'bone')
-f, (ax1, ax2) = plt.subplots(1, 2, figsize=(plt.figaspect(0.5)))
-ax1.imshow(cam2.getImage().astype('float'), cmap = 'bone')
-ax1.set_title('measured interferogram')
-Zn.plot_interferogram(j_max, a_measured, ax2)
-ax2.set_title('interferogram simulated from measured coefficients')
+f, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(plt.figaspect(0.24)))
+ax1.set_title('interferogram of wanted abberation')
+Zn.plot_interferogram(j_max, a, ax1)
+ax2.imshow(cam2.getImage().astype('float'), cmap = 'bone')
+ax2.set_title('measured interferogram')
+Zn.plot_interferogram(j_max, a_measured, ax3)
+ax3.set_title('interferogram simulated from measured coefficients')
+
+f2 = plt.figure()
+ax = f2.add_subplot(1,1,1)
+indexs = np.arange(1, j_max+1, 1)
+ax.plot(indexs, a/wavelength, 'ro', label = 'intended')
+ax.plot(indexs, a_measured/wavelength, 'bo', label = 'measured')
+ax.legend(loc = 'best')
+ax.set_xlabel('Coeffcient number')
+ax.set_ylabel('a_j [\lambda]')
+
+plt.show()
+
+
 #a_janss_real, a_janss_check = janssen.coeff(x_pos_zero, y_pos_zero, image_control, sh, px_size_sh, f_sh, r_sh_m, j_max)

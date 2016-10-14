@@ -6,6 +6,7 @@ import edac40
 import mirror_control as mc
 
 mirror = edac40.OKOMirror("169.254.158.203") # Enter real IP in here
+#mirror = edac40.OKOMirror("169.254.40.40") # Enter real IP in here
 
 def actuators_test():
     for i in range(19):

@@ -16,11 +16,11 @@ import edac40
 import matplotlib.ticker as ticker
 
 px_size_int = 5.2e-6
-x0 = 554
+x0 = 545
 y0 = 490
 
 #### Gather interferogram 
-impath_int = os.path.abspath("interference_for_radius.tif")
+impath_int = os.path.abspath("dm_int.tif")
 image_int = np.asarray(PIL.Image.open(impath_int)).astype(float)
 [ny,nx] = image_int.shape
 x = np.linspace(1, nx, nx)
@@ -33,9 +33,10 @@ norm_photons = 1.0/np.sum(image_int)
 centre[0] = norm_photons * np.sum(image_int * xx)
 centre[1] = norm_photons * np.sum(image_int * yy)
 print centre
-mask = [np.sqrt((xx-x0)**2 + (yy-y0)**2) > 370]
+size = 325
+mask = [np.sqrt((xx-x0)**2 + (yy-y0)**2) > size]
 image_int *= np.squeeze(mask)
-print 370*px_size_int
+print size*px_size_int
 #image_int[image_int < 10] = 0
 ##image_int[:, :530] = 0
 ##image_int[:, 600:] = 0
