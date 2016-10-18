@@ -83,10 +83,14 @@ def Zernike_xy(x, y, power_mat, j):
     out: Z, a matrix containing the values of Zj at points x and y
     
     Normalized s.t. int(|Z_j|^2) = pi/(n+1)"""
-    x_list, y_list = np.nonzero(power_mat[...,j-1])
-    Z = np.zeros(x.shape)
-    for i in range(len(x_list)):
-        Z += power_mat[x_list[i], y_list[i], j-1] * np.power(x, x_list[i]) * np.power(y, y_list[i])
+    #x_list, y_list = np.nonzero(power_mat[...,j-1])
+    dim1 = list(x.shape)
+    dim1.append(len(j))
+    Z = np.zeros(dim1)
+    for i in range(len(j)):
+        x_list, y_list = np.nonzero(power_mat[...,j[i]-1])
+        for jj in range(len(x_list)):
+            Z[...,i] += power_mat[x_list[jj], y_list[jj], j[i]-1] * np.power(x, x_list[jj]) * np.power(y, y_list[jj])
     return Z
     
 def xder_brug(x, y, power_mat, j):

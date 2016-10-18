@@ -81,7 +81,7 @@ cam2.setProperty("cam","Pixel Clock", 43)
 cam2.setProperty("cam","Exposure", 0.0668)
 
 global mirror
-mirror = edac40.OKOMirror("169.254.69.72") # Enter real IP in here
+mirror = edac40.OKOMirror("169.254.158.203") # Enter real IP in here
 
 actuators = 19
 u_dm = np.zeros(actuators)
@@ -102,7 +102,7 @@ zero_image = sh.getImage().astype(float)
 px_size_sh = 5.2e-6     # width of pixels
 px_size_int = 5.2e-6
 f_sh = 17.6e-3            # focal length
-r_int_px = 325
+r_int_px = 370
 r_sh_m = r_int_px * px_size_int
 r_sh_px = r_sh_m / px_size_sh
 x = np.linspace(1, nx, nx)
@@ -120,7 +120,7 @@ x_pos_flat, y_pos_flat = Hm.centroid_positions(x_pos_zero, y_pos_zero, image_con
 centre = Hm.centroid_centre(x_pos_flat, y_pos_flat)
 x_pos_norm = ((x_pos_flat - centre[0]))/r_sh_px
 y_pos_norm = ((y_pos_flat - centre[1]))/r_sh_px
-inside = np.where(np.sqrt(x_pos_norm**2 + y_pos_norm**2) <= (1 - (35.0/r_sh_px))) #35 is the half the width of the pixel box aroudn a centroid and r_sh_px is the scaling factor
+inside = np.where(np.sqrt(x_pos_norm**2 + y_pos_norm**2) <= (1 + (35.0/r_sh_px))) #35 is the half the width of the pixel box aroudn a centroid and r_sh_px is the scaling factor
 x_pos_zero_f, y_pos_zero_f, x_pos_flat_f, y_pos_flat_f, x_pos_norm_f, y_pos_norm_f = filter_positions(inside, x_pos_zero, y_pos_zero, x_pos_flat, y_pos_flat, x_pos_norm, y_pos_norm)
 
 f3 = plt.figure(figsize = plt.figaspect(1.))
