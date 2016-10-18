@@ -84,6 +84,7 @@ def Zernike_xy(x, y, power_mat, j):
     
     Normalized s.t. int(|Z_j|^2) = pi/(n+1)"""
     #x_list, y_list = np.nonzero(power_mat[...,j-1])
+    j = np.array(j)
     dim1 = list(x.shape)
     dim1.append(len(j))
     Z = np.zeros(dim1)
@@ -102,10 +103,13 @@ def xder_brug(x, y, power_mat, j):
     
     Normalized s.t. int(|Z_j|^2) = pi/(n+1)"""
     power_mat = power_mat[1:, :, :]
-    x_list, y_list = np.nonzero(power_mat[...,j-1])
-    dZdx = np.zeros(x.shape)
-    for i in range(len(x_list)):
-        dZdx += (x_list[i]+1)*power_mat[x_list[i], y_list[i], j-1] * np.power(x, x_list[i]) * np.power(y, y_list[i])
+    dim1 = list(x.shape)
+    dim1.append(len(j))
+    dZdx = np.zeros(dim1)
+    for jj in range(len(j)):
+        x_list, y_list = np.nonzero(power_mat[...,j[jj]-1])
+        for i in range(len(x_list)):
+            dZdx[...,jj] += (x_list[i]+1)*power_mat[x_list[i], y_list[i], j[jj]-1] * np.power(x, x_list[i]) * np.power(y, y_list[i])
     return dZdx
     
 def yder_brug(x, y, power_mat, j):
@@ -117,10 +121,13 @@ def yder_brug(x, y, power_mat, j):
     
     Normalized s.t. int(|Z_j|^2) = pi/(n+1)"""
     power_mat = power_mat[:, 1:, :]
-    x_list, y_list = np.nonzero(power_mat[...,j-1]) #-1 due to j = 1 in power_mat[...,0]
-    dZdy = np.zeros(x.shape)
-    for i in range(len(x_list)):
-        dZdy += (y_list[i]+1)*power_mat[x_list[i], y_list[i], j-1] * np.power(x, x_list[i]) * np.power(y, y_list[i])
+    dim1 = list(x.shape)
+    dim1.append(len(j))
+    dZdy = np.zeros(dim1)
+    for jj in range(len(j)):
+        x_list, y_list = np.nonzero(power_mat[...,j[jj]-1]) #-1 due to j = 1 in power_mat[...,0]
+        for i in range(len(x_list)):
+            dZdy[...,jj] += (y_list[i]+1)*power_mat[x_list[i], y_list[i], j[jj]-1] * np.power(x, x_list[i]) * np.power(y, y_list[i])
     return dZdy
  
     
@@ -245,20 +252,24 @@ def plot_zernike(j_max, a, wavelength = 632.8e-9, savefigure = False, title = 'z
     xi, yi = np.meshgrid(xi, yi)
     xn = np.ma.masked_where(xi**2 + yi**2 >= 1, xi)
     yn = np.ma.masked_where(xi**2 + yi**2 >= 1, yi)
-    power_mat = Zernike_power_mat(j_max+1)
+    power_mat = Zernike_power_mat(j_max+2)
+    j_range = np.arange(2, j_max+2)
     Z = np.zeros(xi.shape)
-    for jj in range(j_max):
-        Z += a[jj] * Zernike_xy(xi, yi, power_mat, jj+2)
+    Z_mat = Zernike_xy(xi, yi, power_mat, j_range)
+    Z = np.sum(a * Z_mat, axis=2)
+    #for jj in range(j_max):
+    #    Z += a[jj] * Zernike_xy(xi, yi, power_mat, jj+2)
 
     Z /= wavelength
-    Zn = np.ma.masked_where(xi**2 + yi**2 >=1, Z2)
+    Zn = np.ma.masked_where(xi**2 + yi**2 >=1, Z)
     fig = plt.figure(figsize = plt.figaspect(1.))
-    plt.contourf(xn, yn, Zn2, rstride=1, cstride=1, cmap=cm.gray, linewidth = 0)
+    plotje = plt.contourf(xn, yn, Zn, rstride=1, cstride=1, cmap=cm.gray, linewidth = 0)
     cbar = plt.colorbar()
     #plt.title("Defocus 10")
     cbar.ax.set_ylabel('lambda')
     if savefigure:
         plt.savefig(title + '.png', bbox_inches='tight')
+    return plotje
 
 def plot_interferogram(j_max, a, ax = None, wavelength = 632.8e-9, savefigure = False, title = 'Interferogram according to a'):
     if ax is None:
@@ -267,10 +278,11 @@ def plot_interferogram(j_max, a, ax = None, wavelength = 632.8e-9, savefigure = 
     xi, yi = np.meshgrid(xi, yi)
     xn = np.ma.masked_where(xi**2 + yi**2 >= 1, xi)
     yn = np.ma.masked_where(xi**2 + yi**2 >= 1, yi)
-    power_mat = Zernike_power_mat(j_max+1)
+    power_mat = Zernike_power_mat(j_max+2)
     Z = np.zeros(xi.shape)
-    for jj in range(j_max):
-        Z += a[jj] * Zernike_xy(xi, yi, power_mat, jj+2)
+    j_range = np.arange(2, j_max+2)
+    Z_mat = Zernike_xy(xi, yi, power_mat, j_range)
+    Z = np.sum(a * Z_mat, axis = 2)
 
     Z /= wavelength
     fig = plt.figure(figsize = plt.figaspect(1.))

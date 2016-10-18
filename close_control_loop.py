@@ -171,9 +171,13 @@ if np.any(np.sqrt(x_pos_norm_f **2 + y_pos_norm_f**2) > 1):
     print "somethings gone wrong in normalization"
 
 
-G = LSQ.geometry_matrix_2(x_pos_norm_f, y_pos_norm_f, j_max, r_sh_px)
+G = LSQ.matrix_avg_gradient(x_pos_norm_f, y_pos_norm_f, j_max, r_sh_px)
 a = np.zeros(j_max)
-a[2] = 0.5 * wavelength
+a[0] = -0.3 * wavelength
+a[1] = -0.1 * wavelength
+a[2] = -0.5 * wavelength
+a[6] = 0.0 * wavelength
+a[5] = 0.0 * wavelength
 v_abb = abberations2voltages(G, V2D_inv, a, f_sh, r_sh_m, px_size_sh)
 u_dm -= v_abb
 ##u_dm_minus = u_dm - v_abb
