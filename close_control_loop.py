@@ -41,44 +41,77 @@ def filter_positions(inside, *args):
 
     
 #### Set up cameras
+cam1=MMCorePy.CMMCore()
+cam1.loadDevice("cam","IDS_uEye","IDS uEye")
+cam1.initializeDevice("cam")
+cam1.setCameraDevice("cam")
+pixel_clock = cam1.getPropertyUpperLimit("cam", "Pixel Clock")
+if pixel_clock == 150.0:
+    cam1.setProperty("cam","Pixel Clock",150)
+    cam1.setProperty("cam", "PixelType", '8bit mono')
+    cam1.setProperty("cam","Exposure",0.0434)
+    sh = cam1
+
+    cam2=MMCorePy.CMMCore()
+    cam2.loadDevice("cam","IDS_uEye","IDS uEye")
+    cam2.initializeDevice("cam")
+    cam2.setCameraDevice("cam")
+    cam2.setProperty("cam","Pixel Clock", 43)
+    cam2.setProperty("cam","Exposure", 0.0668)
+    int_cam = cam2
+else:
+    cam1.setProperty("cam","Pixel Clock", 43)
+    cam1.setProperty("cam","Exposure", 0.0668)
+    int_cam = cam1
+
+    cam2=MMCorePy.CMMCore()
+    cam2.loadDevice("cam","IDS_uEye","IDS uEye")
+    cam2.initializeDevice("cam")
+    cam2.setCameraDevice("cam")
+    cam2.setProperty("cam","Pixel Clock", 150)
+    cam2.setProperty("cam","PixelType", '8bit mono')
+    cam2.setProperty("cam","Exposure", 0.0434)
+    sh = cam2
+
+
+####cam1=MMCorePy.CMMCore()
+####
+####cam1.loadDevice("cam","IDS_uEye","IDS uEye")
+####cam1.initializeDevice("cam")
+####cam1.setCameraDevice("cam")
+####cam1.setProperty("cam","Pixel Clock",43)
+####cam1.setProperty("cam","Exposure",0.0668)
+##
 ##cam1=MMCorePy.CMMCore()
+##sh = cam1
 ##
 ##cam1.loadDevice("cam","IDS_uEye","IDS uEye")
 ##cam1.initializeDevice("cam")
 ##cam1.setCameraDevice("cam")
-##cam1.setProperty("cam","Pixel Clock",43)
-##cam1.setProperty("cam","Exposure",0.0668)
-
-cam1=MMCorePy.CMMCore()
-sh = cam1
-
-cam1.loadDevice("cam","IDS_uEye","IDS uEye")
-cam1.initializeDevice("cam")
-cam1.setCameraDevice("cam")
-cam1.setProperty("cam","Pixel Clock",150)
-cam1.setProperty("cam", "PixelType", '8bit mono')
-cam1.setProperty("cam","Exposure",0.0434)
-
-
+##cam1.setProperty("cam","Pixel Clock",150)
+##cam1.setProperty("cam", "PixelType", '8bit mono')
+##cam1.setProperty("cam","Exposure",0.0434)
+##
+##
+####cam2=MMCorePy.CMMCore()
+####sh = cam2
+####
+####cam2.loadDevice("cam","IDS_uEye","IDS uEye")
+####cam2.initializeDevice("cam")
+####cam2.setCameraDevice("cam")
+####cam2.setProperty("cam","Pixel Clock", 150)
+####cam2.setProperty("cam","PixelType", '8bit mono')
+####cam2.setProperty("cam","Exposure", 0.0434)
+##
+##
 ##cam2=MMCorePy.CMMCore()
-##sh = cam2
 ##
 ##cam2.loadDevice("cam","IDS_uEye","IDS uEye")
 ##cam2.initializeDevice("cam")
 ##cam2.setCameraDevice("cam")
-##cam2.setProperty("cam","Pixel Clock", 150)
-##cam2.setProperty("cam","PixelType", '8bit mono')
-##cam2.setProperty("cam","Exposure", 0.0434)
-
-
-cam2=MMCorePy.CMMCore()
-
-cam2.loadDevice("cam","IDS_uEye","IDS uEye")
-cam2.initializeDevice("cam")
-cam2.setCameraDevice("cam")
-cam2.setProperty("cam","Pixel Clock", 43)
-#cam2.setProperty("cam","PixelType", '8bit mono')
-cam2.setProperty("cam","Exposure", 0.0668)
+##cam2.setProperty("cam","Pixel Clock", 43)
+###cam2.setProperty("cam","PixelType", '8bit mono')
+##cam2.setProperty("cam","Exposure", 0.0668)
 
 global mirror
 mirror = edac40.OKOMirror("169.254.158.203") # Enter real IP in here
@@ -102,7 +135,7 @@ zero_image = sh.getImage().astype(float)
 px_size_sh = 5.2e-6     # width of pixels
 px_size_int = 5.2e-6
 f_sh = 17.6e-3            # focal length
-r_int_px = 370
+r_int_px = 410
 r_sh_m = r_int_px * px_size_int
 r_sh_px = r_sh_m / px_size_sh
 x = np.linspace(1, nx, nx)
@@ -123,14 +156,16 @@ y_pos_norm = ((y_pos_flat - centre[1]))/r_sh_px
 inside = np.where(np.sqrt(x_pos_norm**2 + y_pos_norm**2) <= (1 + (35.0/r_sh_px))) #35 is the half the width of the pixel box aroudn a centroid and r_sh_px is the scaling factor
 x_pos_zero_f, y_pos_zero_f, x_pos_flat_f, y_pos_flat_f, x_pos_norm_f, y_pos_norm_f = filter_positions(inside, x_pos_zero, y_pos_zero, x_pos_flat, y_pos_flat, x_pos_norm, y_pos_norm)
 
-f3 = plt.figure(figsize = plt.figaspect(1.))
-ax3 = f3.add_subplot(1,1,1)
-ax3.scatter(x_pos_norm, y_pos_norm, color='b')
-ax3.scatter(x_pos_norm_f, y_pos_norm_f, color ='r')
-#plt.scatter(centre[0],centre[1], color = 'k')
-circle1 = plt.Circle([0,0] , 1, color = 'k', fill=False)
-ax3.add_artist(circle1)
-plt.show()
+##f3 = plt.figure(figsize = plt.figaspect(1.))
+##ax3 = f3.add_subplot(1,1,1)
+##ax3.scatter(x_pos_norm, y_pos_norm, color='b')
+##ax3.scatter(x_pos_norm_f, y_pos_norm_f, color ='r')
+##ax3.set_xlim([-1, 1])
+##ax3.set_ylim([-1, 1])
+###plt.scatter(centre[0],centre[1], color = 'k')
+##circle1 = plt.Circle([0,0] , 1, color = 'k', fill=False)
+##ax3.add_artist(circle1)
+##plt.show()
 actnum=np.arange(0,19,1)
 linacts=np.where(np.logical_or(actnum==4,actnum==7))
 others=np.where(np.logical_and(actnum!=4,actnum!=7))
@@ -156,7 +191,7 @@ for i in range(20):
     u_dm_diff = np.dot(V2D_inv, d)
     u_dm -= scaling * u_dm_diff
     mc.set_displacement(u_dm, mirror)
-    time.sleep(0.2)
+    time.sleep(0.05)
 plt.hist(u_dm)
 plt.show()
 print(u_dm)
@@ -167,17 +202,21 @@ PIL.Image.fromarray(cam2.getImage().astype("float")).save("interference_pattern_
 plt.imshow(cam2.getImage().astype('float'), cmap = 'bone')
 plt.show()
 
-if np.any(np.sqrt(x_pos_norm_f **2 + y_pos_norm_f**2) > 1):
+if np.any(np.sqrt(x_pos_norm_f **2 + y_pos_norm_f**2) > (1+35/r_sh_px)):
     print "somethings gone wrong in normalization"
 
 
 G = LSQ.matrix_avg_gradient(x_pos_norm_f, y_pos_norm_f, j_max, r_sh_px)
+G_old = LSQ.geometry_matrix_2(x_pos_norm_f, y_pos_norm_f, j_max, r_sh_px)
 a = np.zeros(j_max)
-a[0] = -0.3 * wavelength
-a[1] = -0.1 * wavelength
-a[2] = -0.5 * wavelength
-a[6] = 0.0 * wavelength
-a[5] = 0.0 * wavelength
+#a[0] = -0.3 * wavelength
+#a[1] = -0.1 * wavelength
+#a[2] = 0.3 * wavelength
+a[8] = 0.2 * wavelength
+#a[9] = 0.3 * wavelength
+#a[5] = 0.3 * wavelength
+
+u_dm_flat = u_dm
 v_abb = abberations2voltages(G, V2D_inv, a, f_sh, r_sh_m, px_size_sh)
 u_dm -= v_abb
 ##u_dm_minus = u_dm - v_abb
@@ -197,7 +236,8 @@ cam2.snapImage()
 #plt.imshow(cam2.getImage().astype('float'), cmap = 'bone')
 #plt.show()
 raw_input("re-cover the reference mirror")
-a_measured = LSQ.LSQ_coeff(x_pos_zero_f, y_pos_zero_f, image_control, sh, px_size_sh, r_sh_px, f_sh, j_max)
+a_measured_new = LSQ.LSQ_coeff(x_pos_zero_f, y_pos_zero_f, G, image_control, sh, px_size_sh, r_sh_px, f_sh, j_max)
+a_measured_old = LSQ.LSQ_coeff(x_pos_zero_f, y_pos_zero_f, G_old, image_control, sh, px_size_sh, r_sh_px, f_sh, j_max)
 
 plt.imshow(cam2.getImage().astype('float'), cmap = 'bone')
 f, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(plt.figaspect(0.24)))
@@ -205,14 +245,16 @@ ax1.set_title('interferogram of wanted abberation')
 Zn.plot_interferogram(j_max, a, ax1)
 ax2.imshow(cam2.getImage().astype('float'), cmap = 'bone')
 ax2.set_title('measured interferogram')
-Zn.plot_interferogram(j_max, a_measured, ax3)
+Zn.plot_interferogram(j_max, a_measured_new, ax3)
 ax3.set_title('interferogram simulated from measured coefficients')
 
 f2 = plt.figure()
 ax = f2.add_subplot(1,1,1)
 indexs = np.arange(1, j_max+1, 1)
 ax.plot(indexs, a/wavelength, 'ro', label = 'intended')
-ax.plot(indexs, a_measured/wavelength, 'bo', label = 'measured')
+ax.plot(indexs, a_measured_new/wavelength, 'bo', label = 'measured_new')
+ax.plot(indexs, a_measured_old/wavelength, 'go', label = 'measured_old')
+ax.set_xlim([0, j_max+1])
 ax.legend(loc = 'best')
 ax.set_xlabel('Coeffcient number')
 ax.set_ylabel('a_j [\lambda]')

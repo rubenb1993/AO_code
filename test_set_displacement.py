@@ -95,7 +95,7 @@ actnum=np.arange(0,19,1)
 linacts=np.where(np.logical_or(actnum==4,actnum==7))
 others=np.where(np.logical_and(actnum!=4,actnum!=7))
 
-V2D = Dm.gather_displacement_matrix(mirror, sh)
+V2D = Dm.gather_displacement_matrix(mirror, sh, x_pos_zero, y_pos_zero)
 rms_sim = np.sqrt(np.sum(np.square(V2D), axis = 0) / float(len(V2D[:, 0])))
 x_sim = np.array([-1.0, 0, 1.0])
 y_sim = np.array([rms_sim, np.zeros(len(rms_sim)), rms_sim])
@@ -136,7 +136,7 @@ for jj in np.nditer(linacts):
         voltage = u_dm_test[ii]
         voltages = np.zeros(actuators)
         voltages[jj] += voltage
-        set_displacement(voltages, mirror)
+        mc.set_displacement(voltages, mirror)
         time.sleep(0.2)
         sh.snapImage()
         image = sh.getImage().astype(float)

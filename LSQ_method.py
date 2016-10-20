@@ -160,7 +160,7 @@ def pol2cart(rho, phi):
 ##fig = plt.figure()
 ##plt.imshow(dist_image, cmap = 'bone')
 ##plt.show()
-def LSQ_coeff(x_pos_zero, y_pos_zero, zero_image, sh, px_size, r_sh_px, f, j_max):   
+def LSQ_coeff(x_pos_zero, y_pos_zero, G, zero_image, sh, px_size, r_sh_px, f, j_max):   
     ##### Make list of maxima given "flat" wavefront ####
     #x_pos_zero, y_pos_zero = Hm.zero_positions(zero_image) #initial guess of positions
 
@@ -192,7 +192,7 @@ def LSQ_coeff(x_pos_zero, y_pos_zero, zero_image, sh, px_size, r_sh_px, f, j_max
     sh.snapImage()
     dist_image = sh.getImage().astype(float)
     x_pos_dist, y_pos_dist = Hm.centroid_positions(x_pos_flat, y_pos_flat, dist_image, xx, yy)
-    G = geometry_matrix_2(x_pos_norm, y_pos_norm, j_max, r_sh_px)
+    #G = geometry_matrix_2(x_pos_norm, y_pos_norm, j_max, r_sh_px)
     ##zi = griddata((x_pos_norm, y_pos_norm), G[:len(x_pos_norm),2], (xi, yi), method='linear')
     ##plt.imshow(zi, vmin=G[:len(x_pos_norm),2].min(), vmax=G[:len(x_pos_norm),2].max(), origin='lower',
     ##           extent=[x_pos_norm.min(), x_pos_norm.max(), y_pos_norm.min(), y_pos_norm.max()])
@@ -200,6 +200,7 @@ def LSQ_coeff(x_pos_zero, y_pos_zero, zero_image, sh, px_size, r_sh_px, f, j_max
     ##plt.show()
 
     s = np.hstack(Hm.centroid2slope(x_pos_dist, y_pos_dist, x_pos_flat, y_pos_flat, px_size, f, r_sh_m))
+    #a = np.linalg.lstsq(G, s)[0]
     G_inv = np.linalg.pinv(G)
     a = np.dot(G_inv, s)
     return a

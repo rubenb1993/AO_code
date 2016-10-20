@@ -59,7 +59,7 @@ def gather_displacement_matrix(mirror, sh, x_pos_zero, y_pos_zero):
         voltages = np.zeros(actuators)
         voltages[i] += stroke
         set_displacement(voltages, mirror)
-        time.sleep(0.2)
+        time.sleep(0.05)
         sh.snapImage()
         image = sh.getImage().astype(float)
         centroid_i = np.hstack(Hm.centroid_positions(x_pos_zero, y_pos_zero, image, xx, yy))
@@ -68,7 +68,7 @@ def gather_displacement_matrix(mirror, sh, x_pos_zero, y_pos_zero):
         voltages = np.zeros(actuators)
         voltages[i] -= stroke
         set_displacement(voltages, mirror)
-        time.sleep(0.2)
+        time.sleep(0.05)
         sh.snapImage()
         image = sh.getImage().astype(float)
         centroid_i = np.hstack(Hm.centroid_positions(x_pos_zero, y_pos_zero, image, xx, yy))
@@ -79,7 +79,7 @@ def gather_displacement_matrix(mirror, sh, x_pos_zero, y_pos_zero):
         voltages = np.zeros(actuators)
         voltages[i] += stroke
         set_displacement(voltages, mirror)
-        time.sleep(0.2)
+        time.sleep(0.05)
         sh.snapImage()
         image = sh.getImage().astype(float)
         centroid_i = np.hstack(Hm.centroid_positions(x_pos_zero, y_pos_zero, image, xx, yy))
@@ -88,7 +88,7 @@ def gather_displacement_matrix(mirror, sh, x_pos_zero, y_pos_zero):
         voltages = np.zeros(actuators)
         voltages[i] -= stroke
         set_displacement(voltages, mirror)
-        time.sleep(0.2)
+        time.sleep(0.05)
         sh.snapImage()
         image = sh.getImage().astype(float)
         centroid_i = np.hstack(Hm.centroid_positions(x_pos_zero, y_pos_zero, image, xx, yy))
