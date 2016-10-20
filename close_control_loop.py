@@ -135,7 +135,7 @@ zero_image = sh.getImage().astype(float)
 px_size_sh = 5.2e-6     # width of pixels
 px_size_int = 5.2e-6
 f_sh = 17.6e-3            # focal length
-r_int_px = 410
+r_int_px = 415
 r_sh_m = r_int_px * px_size_int
 r_sh_px = r_sh_m / px_size_sh
 x = np.linspace(1, nx, nx)
@@ -181,7 +181,7 @@ V2D_inv = np.linalg.pinv(V2D)
 scaling = 0.75
 ##x_pos_flat, y_pos_flat = Hm.centroid_positions(x_pos_zero, y_pos_zero, image_control, xx, yy)
 centroid_control = np.hstack((x_pos_flat_f, y_pos_flat_f))
-for i in range(20):
+for i in range(30):
     print(i)
     sh.snapImage()
     zero_image = sh.getImage().astype(float)
@@ -195,12 +195,12 @@ for i in range(20):
 plt.hist(u_dm)
 plt.show()
 print(u_dm)
-
-raw_input('remove black paper!')
-cam2.snapImage()
-PIL.Image.fromarray(cam2.getImage().astype("float")).save("interference_pattern_after_inversion.tif")
-plt.imshow(cam2.getImage().astype('float'), cmap = 'bone')
-plt.show()
+##
+##raw_input('remove black paper!')
+##cam2.snapImage()
+##PIL.Image.fromarray(cam2.getImage().astype("float")).save("interference_pattern_after_inversion.tif")
+##plt.imshow(cam2.getImage().astype('float'), cmap = 'bone')
+##plt.show()
 
 if np.any(np.sqrt(x_pos_norm_f **2 + y_pos_norm_f**2) > (1+35/r_sh_px)):
     print "somethings gone wrong in normalization"
@@ -231,6 +231,7 @@ if np.any(np.abs(u_dm) > 1.0):
     print(u_dm)
 mc.set_displacement(u_dm, mirror)
 time.sleep(0.3)
+raw_input("uncover the mirror")
 cam2.snapImage()
 #PIL.Image.fromarray(cam2.getImage().astype("float")).save("interference_pattern_after_inversion.tif")
 #plt.imshow(cam2.getImage().astype('float'), cmap = 'bone')
@@ -238,7 +239,7 @@ cam2.snapImage()
 raw_input("re-cover the reference mirror")
 a_measured_new = LSQ.LSQ_coeff(x_pos_zero_f, y_pos_zero_f, G, image_control, sh, px_size_sh, r_sh_px, f_sh, j_max)
 a_measured_old = LSQ.LSQ_coeff(x_pos_zero_f, y_pos_zero_f, G_old, image_control, sh, px_size_sh, r_sh_px, f_sh, j_max)
-
+##
 plt.imshow(cam2.getImage().astype('float'), cmap = 'bone')
 f, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(plt.figaspect(0.24)))
 ax1.set_title('interferogram of wanted abberation')
