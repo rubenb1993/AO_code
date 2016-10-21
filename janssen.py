@@ -129,17 +129,17 @@ def coeff(x_pos_zero, y_pos_zero, zero_image, sh, px_size, f, r_sh_m, j_max,):
     n, m = Zn.Zernike_j_2_nm(np.array(range(2, int(kmax)+1))) #find n and m pairs for maximum fringe number
     Kmax = np.max(Zn.Zernike_nm_2_j(n+1, np.abs(m)+1)) #find highest order of j for which beta is needed
     power_mat = Zn.Zernike_power_mat(Kmax+1)
-    Z_mat = np.zeros((len(x_pos_flat), Kmax), dtype = np.complex_)
-    for jj in range(2, int(Kmax)+1):
-        n, m = Zn.Zernike_j_2_nm(jj)
-        if m > 0:
-            j_min = Zn.Zernike_nm_2_j(n, -m)
-            Z_mat[:, jj-2] = (1/np.sqrt(2)) * (Zn.Zernike_xy(x_pos_norm, y_pos_norm, power_mat, jj) - 1j * Zn.Zernike_xy(x_pos_norm, y_pos_norm, power_mat, j_min))
-        elif m < 0:
-            j_plus = Zn.Zernike_nm_2_j(n, np.abs(m))
-            Z_mat[:, jj-2] = (1/np.sqrt(2)) * (Zn.Zernike_xy(x_pos_norm, y_pos_norm, power_mat, j_plus) + 1j * Zn.Zernike_xy(x_pos_norm, y_pos_norm, power_mat, jj))
-        else:
-            Z_mat[:, jj-2] = Zn.Zernike_xy(x_pos_norm, y_pos_norm, power_mat, jj) #begin at j = 2
+    Z_mat = Zn.complex_zernike(Kmax+1, x_pos_norm, y_pos_norm)
+##    for jj in range(2, int(Kmax)+1):
+##        n, m = Zn.Zernike_j_2_nm(jj)
+##        if m > 0:
+##            j_min = Zn.Zernike_nm_2_j(n, -m)
+##            Z_mat[:, jj-2] =(Zn.Zernike_xy(x_pos_norm, y_pos_norm, power_mat, jj) - 1j * Zn.Zernike_xy(x_pos_norm, y_pos_norm, power_mat, j_min))
+##        elif m < 0:
+##            j_plus = Zn.Zernike_nm_2_j(n, np.abs(m))
+##            Z_mat[:, jj-2] = (Zn.Zernike_xy(x_pos_norm, y_pos_norm, power_mat, j_plus) + 1j * Zn.Zernike_xy(x_pos_norm, y_pos_norm, power_mat, jj))
+##        else:
+##            Z_mat[:, jj-2] = Zn.Zernike_xy(x_pos_norm, y_pos_norm, power_mat, jj) #begin at j = 2
 
     #Invert and solve for beta
     Z_mat_inv = np.linalg.pinv(Z_mat)
@@ -149,8 +149,8 @@ def coeff(x_pos_zero, y_pos_zero, zero_image, sh, px_size, f, r_sh_m, j_max,):
     beta_min = np.dot(Z_mat_inv, dW_min)
 
     a = np.zeros(kmax, dtype = np.complex_)
-    a_real = np.zeros(j_max-1)
-    a_check = np.zeros(j_max-1, dtype = np.complex_)
+    a_real = np.zeros(j_max)
+    a_check = np.zeros(j_max, dtype = np.complex_)
     kmax = int(kmax)
     for jj in range(2, kmax):
         n, m = Zn.Zernike_j_2_nm(jj)
@@ -162,17 +162,19 @@ def coeff(x_pos_zero, y_pos_zero, zero_image, sh, px_size, f, r_sh_m, j_max,):
         fact2 = 1.0 / (2 * (n+2) * ( 1 + (((n+2-abs(m))/2) > 0)))
         a[jj-2] = fact1 * (beta_plus[index1] + beta_min[index2]) - fact2 * (beta_plus[index3] + beta_min[index4])
 
-    for jj in range(2, j_max+1):
+    for jj in range(2, j_max+2):
+        n, m = Zn.Zernike_j_2_nm(jj)
         if m > 0:
-            a_real[jj-2] = np.sqrt(2) * np.real(a[jj-2])
+            a_real[jj-2] = np.sqrt(2*n+2) * np.real(a[jj-2])
             j_min = Zn.Zernike_nm_2_j(n, -m)
-            a_check[jj-2] = (a[jj-2] + a[j_min-2]) / np.sqrt(2)
+            a_check[jj-2] = np.sqrt(2*n+2)*(a[jj-2] + a[j_min-2])/2.0
         elif m < 0:
-            a_real[jj-2] = np.sqrt(2) * np.imag(a[jj-2])
+            a_real[jj-2] = np.sqrt(2*n+2) * np.imag(a[jj-2])
             j_plus = Zn.Zernike_nm_2_j(n, np.abs(m))
-            a_check[jj-2] = (a[j_plus - 2] - a[jj-2])/np.sqrt(2)
+            a_check[jj-2] = np.sqrt(2*n+2) * (a[j_plus - 2] - a[jj-2])/(2.0 * 1j)
         else:
-            a_real[jj-2] = np.real(a[jj-2])
+            a_real[jj-2] = np.sqrt(n+1) * np.real(a[jj-2])
+            a_check[jj-2] = np.sqrt(n+1) * a[jj-2] + (abs(np.imag(a[jj-2])) <= 1e-21) * 1j
         #a_normalized[jj-2] = a[jj-2] * np.sqrt(n+1)
     return a_real, a_check  
 #print a_real, a_check

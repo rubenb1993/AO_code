@@ -211,8 +211,8 @@ G_old = LSQ.geometry_matrix_2(x_pos_norm_f, y_pos_norm_f, j_max, r_sh_px)
 a = np.zeros(j_max)
 #a[0] = -0.3 * wavelength
 #a[1] = -0.1 * wavelength
-#a[2] = 0.3 * wavelength
-a[8] = 0.2 * wavelength
+a[2] = 0.3 * wavelength
+#a[8] = 0.2 * wavelength
 #a[9] = 0.3 * wavelength
 #a[5] = 0.3 * wavelength
 
@@ -239,6 +239,8 @@ cam2.snapImage()
 raw_input("re-cover the reference mirror")
 a_measured_new = LSQ.LSQ_coeff(x_pos_zero_f, y_pos_zero_f, G, image_control, sh, px_size_sh, r_sh_px, f_sh, j_max)
 a_measured_old = LSQ.LSQ_coeff(x_pos_zero_f, y_pos_zero_f, G_old, image_control, sh, px_size_sh, r_sh_px, f_sh, j_max)
+a_janss_real, a_janss_check = janssen.coeff(x_pos_zero, y_pos_zero, image_control, sh, px_size_sh, f_sh, r_sh_m, j_max)
+
 ##
 plt.imshow(cam2.getImage().astype('float'), cmap = 'bone')
 f, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(plt.figaspect(0.24)))
@@ -254,7 +256,7 @@ ax = f2.add_subplot(1,1,1)
 indexs = np.arange(1, j_max+1, 1)
 ax.plot(indexs, a/wavelength, 'ro', label = 'intended')
 ax.plot(indexs, a_measured_new/wavelength, 'bo', label = 'measured_new')
-ax.plot(indexs, a_measured_old/wavelength, 'go', label = 'measured_old')
+ax.plot(indexs, -a_janss_real/wavelength, 'go', label = 'measured_janss')
 ax.set_xlim([0, j_max+1])
 ax.legend(loc = 'best')
 ax.set_xlabel('Coeffcient number')

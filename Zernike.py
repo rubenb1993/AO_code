@@ -6,6 +6,7 @@ import math
 import matplotlib.pyplot as plt
 from matplotlib import cm
 from mpl_toolkits.axes_grid1 import make_axes_locatable
+import scipy.special as spec
 
 
 def cart2pol(x, y):
@@ -245,6 +246,27 @@ def Zernike_nm(n, m, rho, theta):
         #    return np.sqrt(2*n + 2) * angular * radial
     else:
         return np.zeros(shape=rho.shape)
+
+def complex_zernike(j_max, x, y):
+    """Given the meshgrids for x and y, and given the maximum fringe order, complex zernike retursn
+    an (len(x), len(y), j_max) sized matrix with values of the complex Zernike polynomial at the given points"""
+    rho, theta = cart2pol(x, y)
+    rho2 = 2 * rho**2 - 1
+    j = np.arange(2, j_max+2)
+    n, m = Zernike_j_2_nm(j)
+    nm2 = (n - np.abs(m))/2
+    xshape = list(rho.shape)
+    xshape.append(j_max)
+    Cnm = np.zeros(xshape, dtype = np.complex_)
+    a = np.zeros(len(m))
+    b = np.abs(m)
+    for i in range(len(nm2)):
+        nm = nm2[i]
+        nm = int(nm)
+        for jj in range(nm+1):
+            Cnm[...,i] += spec.comb(nm+a[i], jj) * spec.comb(nm+b[i], nm-jj) * np.power((rho2-1)/2.0, (nm - jj)) * np.power((rho2+1)/2.0, jj)
+        Cnm[...,i] *= np.power(rho, abs(m[i])) * np.exp(1j * m[i] * theta)
+    return Cnm
 
 def plot_zernike(j_max, a, wavelength = 632.8e-9, savefigure = False, title = 'zernike_plot'):
 ### plot zernikes according to coefficients

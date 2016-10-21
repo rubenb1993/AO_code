@@ -61,6 +61,59 @@ def jacobi_pol(n, a, b, m, rho, rho2):
     return radial
 
 
+x, y = np.linspace(-1, 1, 10), np.linspace(-1, 1, 10)
+xx, yy = np.meshgrid(x, y)
+j_max = 5
+def complex_zernike(j_max, x, y):
+    """Given the meshgrids for x and y, and given the maximum fringe order, complex zernike retursn
+    an (len(x), len(y), j_max) sized matrix with values of the complex Zernike polynomial at the given points.
+    THIS IS WITH THE NORMALISATION OF pi/(n+1)"""
+    rho, theta = cart2pol(x, y)
+    rho2 = 2 * rho**2 - 1
+    j = np.arange(1, j_max+1)
+    n, m = Zn.Zernike_j_2_nm(j)
+    nm2 = (n - np.abs(m))/2
+    xshape = list(rho.shape)
+    xshape.append(j_max)
+    Cnm = np.zeros(xshape, dtype = np.complex_)
+    a = np.zeros(len(m))
+    b = np.abs(m)
+    for i in range(len(nm2)):
+        nm = nm2[i]
+        nm = int(nm)
+        for jj in range(nm+1):
+            print jj
+            print nm2[i]
+            Cnm[...,i] += spec.comb(nm+a[i], jj) * spec.comb(nm+b[i], nm-jj) * np.power((rho2-1)/2.0, (nm - jj)) * np.power((rho2+1)/2.0, jj)
+        Cnm[...,i] = np.power(rho, abs(m[i])) * xx[:,i] * np.exp(1j * m[i] * theta)
+    return Cnm
+
+
+##def complex_zernike(j_max, x, y):
+##    rho, theta = cart2pol(x, y)
+##    rho2 = 2 * rho**2 - 1
+##    j = np.arange(1, j_max+1)
+##    n, m = Zn.Zernike_j_2_nm(j)
+##    nm2 = (n - np.abs(m))/2
+##    xshape = list(rho.shape)
+##    xshape.append(j_max)
+##    Cnm = np.zeros(xshape, dtype = np.complex_)
+##    a = np.zeros(len(m))
+##    b = np.abs(m)
+##    for i in range(len(nm2)):
+##        nm = nm2[i]
+##        nm = int(nm)
+##        for jj in range(nm+1):
+##            print jj
+##            print nm2[i]
+##            Cnm[:,i] += spec.comb(nm2[i]+a[i], jj) * spec.comb(nm2[i]+b[i], nm2[i]-jj) * np.power((rho2-1)/2.0, (nm2[i] - jj)) * np.power((rho2+1)/2.0, jj)
+##        Cnm[:,i] = np.power(rho, abs(m[i])) * xx[:,i] * np.exp(1j * m[i] * theta)
+##    return Cnm
+
+Cnm = complex_zernike(j_max, x, y)
+print(Cnm.shape)
+
+    
 rho = np.linspace(-1, 1, 100)
 rho2 = 2*rho**2 - 1
 theta = np.zeros(rho.shape)
