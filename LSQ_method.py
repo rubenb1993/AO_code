@@ -201,8 +201,9 @@ def LSQ_coeff(x_pos_zero, y_pos_zero, G, zero_image, sh, px_size, r_sh_px, f, j_
 
     s = np.hstack(Hm.centroid2slope(x_pos_dist, y_pos_dist, x_pos_flat, y_pos_flat, px_size, f, r_sh_m))
     #a = np.linalg.lstsq(G, s)[0]
-    G_inv = np.linalg.pinv(G)
-    a = np.dot(G_inv, s)
+    #G_inv = np.linalg.pinv(G)
+    #a = np.dot(G_inv, s)
+    a = np.linalg.lstsq(G, s)[0]
     return a
 ##plot_zernike(j_max, a)
 ##

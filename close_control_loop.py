@@ -74,45 +74,6 @@ else:
     sh = cam2
 
 
-####cam1=MMCorePy.CMMCore()
-####
-####cam1.loadDevice("cam","IDS_uEye","IDS uEye")
-####cam1.initializeDevice("cam")
-####cam1.setCameraDevice("cam")
-####cam1.setProperty("cam","Pixel Clock",43)
-####cam1.setProperty("cam","Exposure",0.0668)
-##
-##cam1=MMCorePy.CMMCore()
-##sh = cam1
-##
-##cam1.loadDevice("cam","IDS_uEye","IDS uEye")
-##cam1.initializeDevice("cam")
-##cam1.setCameraDevice("cam")
-##cam1.setProperty("cam","Pixel Clock",150)
-##cam1.setProperty("cam", "PixelType", '8bit mono')
-##cam1.setProperty("cam","Exposure",0.0434)
-##
-##
-####cam2=MMCorePy.CMMCore()
-####sh = cam2
-####
-####cam2.loadDevice("cam","IDS_uEye","IDS uEye")
-####cam2.initializeDevice("cam")
-####cam2.setCameraDevice("cam")
-####cam2.setProperty("cam","Pixel Clock", 150)
-####cam2.setProperty("cam","PixelType", '8bit mono')
-####cam2.setProperty("cam","Exposure", 0.0434)
-##
-##
-##cam2=MMCorePy.CMMCore()
-##
-##cam2.loadDevice("cam","IDS_uEye","IDS uEye")
-##cam2.initializeDevice("cam")
-##cam2.setCameraDevice("cam")
-##cam2.setProperty("cam","Pixel Clock", 43)
-###cam2.setProperty("cam","PixelType", '8bit mono')
-##cam2.setProperty("cam","Exposure", 0.0668)
-
 global mirror
 mirror = edac40.OKOMirror("169.254.158.203") # Enter real IP in here
 
@@ -192,8 +153,8 @@ for i in range(30):
     u_dm -= scaling * u_dm_diff
     mc.set_displacement(u_dm, mirror)
     time.sleep(0.05)
-plt.hist(u_dm)
-plt.show()
+#plt.hist(u_dm)
+#plt.show()
 print(u_dm)
 ##
 ##raw_input('remove black paper!')
@@ -211,7 +172,11 @@ G_old = LSQ.geometry_matrix_2(x_pos_norm_f, y_pos_norm_f, j_max, r_sh_px)
 a = np.zeros(j_max)
 #a[0] = -0.3 * wavelength
 #a[1] = -0.1 * wavelength
-a[2] = 0.3 * wavelength
+a[2] = 1 * wavelength
+#a[3] = 0.2 * wavelength
+#a[5] = 0.3 * wavelength
+#a[6] = 0.3 * wavelength
+#a[7] = 0.3 * wavelength
 #a[8] = 0.2 * wavelength
 #a[9] = 0.3 * wavelength
 #a[5] = 0.3 * wavelength
@@ -232,7 +197,10 @@ if np.any(np.abs(u_dm) > 1.0):
 mc.set_displacement(u_dm, mirror)
 time.sleep(0.3)
 raw_input("uncover the mirror")
-cam2.snapImage()
+int_cam.snapImage()
+interferogram = int_cam.getImage().astype('float')
+interferogram = np.flipud(interferogram)
+interferogram = np.fliplr(interferogram)
 #PIL.Image.fromarray(cam2.getImage().astype("float")).save("interference_pattern_after_inversion.tif")
 #plt.imshow(cam2.getImage().astype('float'), cmap = 'bone')
 #plt.show()
@@ -242,21 +210,24 @@ a_measured_old = LSQ.LSQ_coeff(x_pos_zero_f, y_pos_zero_f, G_old, image_control,
 a_janss_real, a_janss_check = janssen.coeff(x_pos_zero, y_pos_zero, image_control, sh, px_size_sh, f_sh, r_sh_m, j_max)
 
 ##
-plt.imshow(cam2.getImage().astype('float'), cmap = 'bone')
-f, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(plt.figaspect(0.24)))
-ax1.set_title('interferogram of wanted abberation')
-Zn.plot_interferogram(j_max, a, ax1)
-ax2.imshow(cam2.getImage().astype('float'), cmap = 'bone')
-ax2.set_title('measured interferogram')
-Zn.plot_interferogram(j_max, a_measured_new, ax3)
-ax3.set_title('interferogram simulated from measured coefficients')
+#plt.imshow(cam2.getImage().astype('float'), cmap = 'bone')
+f, axarr = plt.subplots(2, 2, figsize=(plt.figaspect(1.)))
+axarr[0,0].set_title('interferogram of wanted abberation')
+Zn.plot_interferogram(j_max, a, axarr[0,0])
+axarr[0, 1].imshow(interferogram, cmap = 'bone')
+axarr[0, 1].set_title('measured interferogram')
+Zn.plot_interferogram(j_max, a_measured_new, axarr[1,0])
+axarr[1, 0].set_title('interferogram simulated from LSQ')
+Zn.plot_interferogram(j_max, a_janss_real, axarr[1,1])
+axarr[1,1].set_title('interferogram simulated from Janssen')
 
 f2 = plt.figure()
 ax = f2.add_subplot(1,1,1)
 indexs = np.arange(1, j_max+1, 1)
 ax.plot(indexs, a/wavelength, 'ro', label = 'intended')
-ax.plot(indexs, a_measured_new/wavelength, 'bo', label = 'measured_new')
-ax.plot(indexs, -a_janss_real/wavelength, 'go', label = 'measured_janss')
+ax.plot(indexs, a_measured_new/(wavelength), 'bo', label = 'LSQ solution')
+#ax.plot(indexs, np.real(a_janss_check)/(wavelength), 'go', label = 'measured_janss_check')
+ax.plot(indexs, a_janss_real/wavelength, 'ko', label = 'Janssen solution')
 ax.set_xlim([0, j_max+1])
 ax.legend(loc = 'best')
 ax.set_xlabel('Coeffcient number')

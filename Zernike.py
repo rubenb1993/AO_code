@@ -252,11 +252,11 @@ def complex_zernike(j_max, x, y):
     an (len(x), len(y), j_max) sized matrix with values of the complex Zernike polynomial at the given points"""
     rho, theta = cart2pol(x, y)
     rho2 = 2 * rho**2 - 1
-    j = np.arange(2, j_max+2)
+    j = np.arange(1, j_max+2)
     n, m = Zernike_j_2_nm(j)
     nm2 = (n - np.abs(m))/2
     xshape = list(rho.shape)
-    xshape.append(j_max)
+    xshape.append(j_max+1)
     Cnm = np.zeros(xshape, dtype = np.complex_)
     a = np.zeros(len(m))
     b = np.abs(m)
@@ -293,7 +293,7 @@ def plot_zernike(j_max, a, wavelength = 632.8e-9, savefigure = False, title = 'z
         plt.savefig(title + '.png', bbox_inches='tight')
     return plotje
 
-def plot_interferogram(j_max, a, ax = None, wavelength = 632.8e-9, savefigure = False, title = 'Interferogram according to a'):
+def plot_interferogram(j_max, a, ax = None, wantcbar = False, wavelength = 632.8e-9, savefigure = False, title = 'Interferogram according to a'):
     if ax is None:
         ax = plt.gca()
     xi, yi = np.linspace(-1, 1, 300), np.linspace(-1, 1, 300)
@@ -307,13 +307,14 @@ def plot_interferogram(j_max, a, ax = None, wavelength = 632.8e-9, savefigure = 
     Z = np.sum(a * Z_mat, axis = 2)
 
     Z /= wavelength
-    fig = plt.figure(figsize = plt.figaspect(1.))
+    #fig = plt.figure(figsize = plt.figaspect(1.))
     Zn = np.ma.masked_where(xi**2 + yi**2 >=1, Z)    
     phase = np.abs( np.abs(Zn) - np.floor(np.abs(Zn)))* 2 * np.pi
     Intens = np.cos(phase/2.0)**2
     interferogram = ax.contourf(xn, yn, Intens, rstride = 1, cstride = 1, cmap=cm.gray, linewidth=0)
-    divider = make_axes_locatable(ax)
-    cax = divider.append_axes("right", size="5%", pad=0.1)
-    cbar = plt.colorbar(interferogram, cax=cax)
+    if wantcbar:
+        divider = make_axes_locatable(ax)
+        cax = divider.append_axes("right", size="5%", pad=0.1)
+        cbar = plt.colorbar(interferogram, cax=cax)
     return interferogram
     #plt.show()
