@@ -114,17 +114,17 @@ Cnm = complex_zernike(j_max, x, y)
 print(Cnm.shape)
 
     
-rho = np.linspace(-1, 1, 100)
+rho = np.linspace(-1, 1, 5000)
 rho2 = 2*rho**2 - 1
 theta = np.zeros(rho.shape)
-j = np.arange(2, 30)
+j = np.array([1, 10, 30, 50, 63, 110, 135, 1050, 1052])
 n, m = Zn.Zernike_j_2_nm(j)
 nm2 = (n - np.abs(m))/2
-f, axarr = plt.subplots(14, 1, sharex = True, sharey = False)
+f, axarr = plt.subplots(len(j), 1, sharex = True, sharey = False)
 
 
-R_janss = np.zeros((100, len(j)))
-R_zern = np.zeros((100, len(j)))
+R_janss = np.zeros((len(rho), len(j)))
+R_zern = np.zeros((len(rho), len(j)))
 list_of_poly = []
 a = np.zeros(len(nm2))
 R_janss = jacobi_pol(nm2, a, np.abs(m), m, rho, rho2)
@@ -132,11 +132,10 @@ for i in range(len(j)):
     #list_of_poly.append(spec.jacobi(nm2[i], 0, np.abs(m[i])))
     #poly_i = spec.jacobi(nm2[i], 0, np.abs(m[i]))
     #R_janss[:, i] = poly_i(rho2)
-    if i%2 == 0:
-        R_zern[:, i] = Zernike_nm(n[i], m[i], rho, theta)
-        axarr[i/2].plot(rho, R_zern[:,i])
-        axarr[i/2].plot(rho, R_janss[:,i])
-        axarr[i/2].set_ylabel([str(n[i]), str(m[i])])
+    R_zern[:, i] = Zernike_nm(n[i], m[i], rho, theta)
+    axarr[i].plot(rho, R_zern[:,i])
+    axarr[i].plot(rho, R_janss[:,i])
+    axarr[i].set_ylabel([str(n[i]), str(m[i])])
 
 plt.show()
 print(list_of_poly)

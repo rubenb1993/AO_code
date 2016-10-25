@@ -102,7 +102,7 @@ r_sh_px = r_sh_m / px_size_sh
 x = np.linspace(1, nx, nx)
 y = np.linspace(1, ny, ny)
 xx, yy = np.meshgrid(x, y)
-j_max= 10           # maximum fringe order
+j_max= 20           # maximum fringe order
 ### Normalize x, y
 wavelength = 632e-9
 #r_sh_m = 1.924e-3 #physical radius
@@ -168,18 +168,18 @@ if np.any(np.sqrt(x_pos_norm_f **2 + y_pos_norm_f**2) > (1+35/r_sh_px)):
 
 
 G = LSQ.matrix_avg_gradient(x_pos_norm_f, y_pos_norm_f, j_max, r_sh_px)
-G_old = LSQ.geometry_matrix_2(x_pos_norm_f, y_pos_norm_f, j_max, r_sh_px)
 a = np.zeros(j_max)
-#a[0] = -0.3 * wavelength
-#a[1] = -0.1 * wavelength
-a[2] = 1 * wavelength
-#a[3] = 0.2 * wavelength
-#a[5] = 0.3 * wavelength
-#a[6] = 0.3 * wavelength
-#a[7] = 0.3 * wavelength
-#a[8] = 0.2 * wavelength
-#a[9] = 0.3 * wavelength
-#a[5] = 0.3 * wavelength
+ind = 4
+n_ind, m_ind = Zn.Zernike_j_2_nm(ind+2)
+if m_ind + 1 > n_ind - 1:
+    print('this was edge case 1')
+elif np.abs(m_ind - 1.0) > np.abs(n_ind - 1.0):
+    print('this was edge case 2')
+else:
+    print('this was no edge case')
+
+a[ind] = 0.3 * wavelength
+
 
 u_dm_flat = u_dm
 v_abb = abberations2voltages(G, V2D_inv, a, f_sh, r_sh_m, px_size_sh)
@@ -206,7 +206,6 @@ interferogram = np.fliplr(interferogram)
 #plt.show()
 raw_input("re-cover the reference mirror")
 a_measured_new = LSQ.LSQ_coeff(x_pos_zero_f, y_pos_zero_f, G, image_control, sh, px_size_sh, r_sh_px, f_sh, j_max)
-a_measured_old = LSQ.LSQ_coeff(x_pos_zero_f, y_pos_zero_f, G_old, image_control, sh, px_size_sh, r_sh_px, f_sh, j_max)
 a_janss_real, a_janss_check = janssen.coeff(x_pos_zero, y_pos_zero, image_control, sh, px_size_sh, f_sh, r_sh_m, j_max)
 
 ##
@@ -214,7 +213,7 @@ a_janss_real, a_janss_check = janssen.coeff(x_pos_zero, y_pos_zero, image_contro
 f, axarr = plt.subplots(2, 2, figsize=(plt.figaspect(1.)))
 axarr[0,0].set_title('interferogram of wanted abberation')
 Zn.plot_interferogram(j_max, a, axarr[0,0])
-axarr[0, 1].imshow(interferogram, cmap = 'bone')
+axarr[0, 1].imshow(interferogram[120:120+2*r_sh_px, 320:320+2*r_sh_px], cmap = 'bone')
 axarr[0, 1].set_title('measured interferogram')
 Zn.plot_interferogram(j_max, a_measured_new, axarr[1,0])
 axarr[1, 0].set_title('interferogram simulated from LSQ')
@@ -223,17 +222,17 @@ axarr[1,1].set_title('interferogram simulated from Janssen')
 
 f2 = plt.figure()
 ax = f2.add_subplot(1,1,1)
-indexs = np.arange(1, j_max+1, 1)
+indexs = np.arange(2, j_max+2, 1)
 ax.plot(indexs, a/wavelength, 'ro', label = 'intended')
 ax.plot(indexs, a_measured_new/(wavelength), 'bo', label = 'LSQ solution')
 #ax.plot(indexs, np.real(a_janss_check)/(wavelength), 'go', label = 'measured_janss_check')
-ax.plot(indexs, a_janss_real/wavelength, 'ko', label = 'Janssen solution')
-ax.set_xlim([0, j_max+1])
+ax.plot(indexs, np.real(a_janss_check)/wavelength, 'ko', label = 'Janssen solution')
+ax.set_xlim([0, j_max+2])
 ax.legend(loc = 'best')
 ax.set_xlabel('Coeffcient number')
 ax.set_ylabel('a_j [\lambda]')
 
 plt.show()
-
+print(a_measured_new/a_janss_real)
 
 #a_janss_real, a_janss_check = janssen.coeff(x_pos_zero, y_pos_zero, image_control, sh, px_size_sh, f_sh, r_sh_m, j_max)

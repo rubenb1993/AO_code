@@ -25,7 +25,7 @@ dx = x[1] - x[0]
 xx, yy = np.meshgrid(x, y)
 rho, theta = cart2pol(xx, yy)
 j_max = 7
-n, m = Zn.Zernike_j_2_nm(np.arange(2,j_max+2))
+n, m = Zn.Zernike_j_2_nm(np.arange(1,j_max+2))
 Cnm = Zn.complex_zernike(j_max, xx, yy)
 mask = [xx**2 + yy**2 >= 1]
 xn, yn = np.ma.array(xx, mask = mask), np.ma.array(yy, mask = mask)
@@ -33,20 +33,23 @@ tiled_mask = np.tile(mask, (Cnm.shape[2], 1,1)).T
 Cnm_mask = np.ma.array(Cnm, mask = tiled_mask)
 A = dx**2 * np.sum(Cnm_mask * np.conj(Cnm_mask), axis = (0,1))/np.pi
 
-power_mat = Zn.Zernike_power_mat(j_max+1)
-j = np.arange(2, j_max+2)
+power_mat = Zn.Zernike_power_mat(j_max+2)
+j = np.arange(2, j_max+3)
 Znm = Zn.Zernike_xy(xx, yy, power_mat, j)
 Znm_mask = np.ma.array(Znm, mask = tiled_mask)
 A2 = dx**2 * np.sum(Znm_mask * Znm_mask, axis = (0,1)) / np.pi
 
+v_max = np.max(Znm_mask[...,4]) 
+v_min = np.min(Znm_mask[...,4]) 
+
 fig, axarr = plt.subplots(2,2, sharex = True, sharey = True, figsize = plt.figaspect(1.))
-axarr[0,0].contourf(xn, yn, Znm_mask[...,3], rstride=1, cstride=1, cmap=cm.YlOrBr, linewidth = 0)
-axarr[0,0].set_title('Z_5')
-axarr[1,0].contourf(xn, yn, Znm_mask[...,4], rstride=1, cstride=1, cmap=cm.YlOrBr, linewidth = 0)
-axarr[1,0].set_title('Z_6')
-axarr[0,1].contourf(xn, yn, np.sqrt(3)*np.real(Cnm_mask[...,3]), rstride=1, cstride=1, cmap=cm.YlOrBr, linewidth = 0)
-axarr[0,1].set_title('Re(C_5)')
-plot = axarr[1,1].contourf(xn, yn, np.sqrt(3)*np.imag(Cnm_mask[...,3]), rstride=1, cstride=1, cmap=cm.YlOrBr, linewidth = 0)
+axarr[0,0].contourf(xn, yn, Znm_mask[...,4], rstride=1, cstride=1, cmap=cm.YlOrBr, linewidth = 0, vmin=v_min, vmax=v_max)
+axarr[0,0].set_title('Z_6')
+axarr[1,0].contourf(xn, yn, Znm_mask[...,3], rstride=1, cstride=1, cmap=cm.YlOrBr, linewidth = 0, vmin=v_min, vmax=v_max)
+axarr[1,0].set_title('Z_5')
+axarr[0,1].contourf(xn, yn, -np.sqrt(2*n[5]+2)*np.imag(Cnm_mask[...,5]), rstride=1, cstride=1, cmap=cm.YlOrBr, linewidth = 0, vmin=v_min, vmax=v_max)
+axarr[0,1].set_title('-Im(C_6)')
+plot = axarr[1,1].contourf(xn, yn, np.sqrt(2*n[5]+2)*np.real(Cnm_mask[...,4]), rstride=1, cstride=1, cmap=cm.YlOrBr, linewidth = 0, vmin=v_min, vmax=v_max)
 axarr[1,1].set_title('Im(C_5)')
 print(n, m)
 fig.subplots_adjust(right = 0.8)

@@ -57,8 +57,10 @@ def coeff(x_pos_zero, y_pos_zero, zero_image, sh, px_size, f, r_sh_m, j_max,):
 
     # Make Zernike matrix
     kmax = np.power(np.ceil(np.sqrt(j_max)),2) #estimation of maximum fringe number
+    print('jmax = ' + str(j_max) + 'kmax = ' + str(kmax))
     n, m = Zn.Zernike_j_2_nm(np.array(range(1, int(kmax)+1))) #find n and m pairs for maximum fringe number
     Kmax = np.max(Zn.Zernike_nm_2_j(n+1, np.abs(m)+1)) #find highest order of j for which beta is needed
+    print('Kmax = ' + str(Kmax))
     #power_mat = Zn.Zernike_power_mat(Kmax+1)
     Z_mat = Zn.complex_zernike(Kmax, x_pos_norm, y_pos_norm)
 ##    for jj in range(2, int(Kmax)+1):
@@ -107,11 +109,11 @@ def coeff(x_pos_zero, y_pos_zero, zero_image, sh, px_size, f, r_sh_m, j_max,):
         if m > 0:
             a_real[jj-2] = (1.0/np.sqrt(2*n+2)) * np.real(a[jj-1])
             j_min = Zn.Zernike_nm_2_j(n, -m)
-            a_check[jj-2] = (1.0/np.sqrt(2*n+2))*(a[jj-1] + a[j_min-1])/2.0
+            a_check[jj-2] = (1.0/np.sqrt(2*n+2))*(a[jj-1] + a[j_min-1])
         elif m < 0:
             j_plus = Zn.Zernike_nm_2_j(n, np.abs(m))
             a_real[jj-2] = (1.0/np.sqrt(2*n+2)) * np.imag(a[j_plus - 1])
-            a_check[jj-2] = np.sqrt(2*n+2) * (a[j_plus - 1] - a[jj-1])/(2.0 * 1j)
+            a_check[jj-2] = (1.0/np.sqrt(2*n+2)) * (a[j_plus - 1] - a[jj-1]) * 1j
         else:
             a_real[jj-2] = (1.0/np.sqrt(n+1)) * np.real(a[jj-1])
             a_check[jj-2] = (1.0/np.sqrt(n+1)) * a[jj-1]
