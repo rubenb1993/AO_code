@@ -249,7 +249,7 @@ def Zernike_nm(n, m, rho, theta):
 
 def complex_zernike(j_max, x, y):
     """Given the meshgrids for x and y, and given the maximum fringe order, complex zernike retursn
-    an (len(x), len(y), j_max) sized matrix with values of the complex Zernike polynomial at the given points"""
+    an (shape(x), j_max) sized matrix with values of the complex Zernike polynomial at the given points"""
     rho, theta = cart2pol(x, y)
     rho2 = 2 * rho**2 - 1
     j = np.arange(1, j_max+2)
@@ -267,6 +267,8 @@ def complex_zernike(j_max, x, y):
             Cnm[...,i] += spec.comb(nm+a[i], jj) * spec.comb(nm+b[i], nm-jj) * np.power((rho2-1)/2.0, (nm - jj)) * np.power((rho2+1)/2.0, jj)
         Cnm[...,i] *= np.power(rho, abs(m[i])) * np.exp(1j * m[i] * theta)
     return Cnm
+
+
 
 def plot_zernike(j_max, a, wavelength = 632.8e-9, savefigure = False, title = 'zernike_plot'):
 ### plot zernikes according to coefficients
