@@ -81,9 +81,9 @@ def coeff(x_pos_zero, y_pos_zero, zero_image, sh, px_size, f, r_sh_m, j_max,):
     #beta_plus = np.dot(Z_mat_inv, dW_plus)
     #beta_min = np.dot(Z_mat_inv, dW_min)
     beta_plus = lin.lstsq(Z_mat, dW_plus)[0]
-    beta_plus[0] = 0
+    #beta_plus[0] = 0
     beta_min = lin.lstsq(Z_mat, dW_min)[0]
-    beta_min[0] = 0
+    #beta_min[0] = 0
 
     a = np.zeros(kmax, dtype = np.complex_)
     a_real = np.zeros(j_max)
@@ -95,8 +95,8 @@ def coeff(x_pos_zero, y_pos_zero, zero_image, sh, px_size, f, r_sh_m, j_max,):
         index2 = Zn.Zernike_nm_2_j(n - 1.0, m - 1.0) - 1
         index3 = Zn.Zernike_nm_2_j(n + 1.0, m + 1.0) - 1
         index4 = Zn.Zernike_nm_2_j(n + 1.0, m - 1.0) - 1
-        fact1 = 1.0 / ( 2 * n * ( 1 + (((n-abs(m))/2) > 0)))
-        fact2 = 1.0 / (2 * (n+2) * ( 1 + (((n+2-abs(m))/2) > 0)))
+        fact1 = 1.0 / ( 2 * n * ( 1 + (n != abs(m))))
+        fact2 = 1.0 / (2 * (n+2) * ( 1 + (((n+2) != abs(m)))))
         if m + 1.0 > n - 1.0:
             a[jj-1] = fact1 * (beta_min[index2]) - fact2 * (beta_plus[index3] + beta_min[index4])
         elif np.abs(m - 1.0) > np.abs(n - 1.0):
