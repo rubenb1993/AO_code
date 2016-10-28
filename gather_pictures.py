@@ -15,8 +15,8 @@ import edac40
 import mirror_control as mc
 
 mirror = edac40.OKOMirror("169.254.158.203") # Enter real IP in here
-u_dm = np.zeros(19)
-mc.set_displacement(u_dm, mirror)
+#u_dm = np.zeros(19)
+#mc.set_displacement(u_dm, mirror)
 
 ##cam1=MMCorePy.CMMCore()
 ##
@@ -53,8 +53,29 @@ cam2.setCameraDevice("cam")
 cam2.setProperty("cam","Pixel Clock", 43)
 #cam2.setProperty("cam","PixelType", '8bit mono')
 cam2.setProperty("cam","Exposure", 0.0668)
+
+u_dm = np.ones(19) * 0.3
+u_dm[4] = 0
+u_dm[7] = 0
+mc.set_displacement(u_dm, mirror)
+time.sleep(0.3)
+
 cam2.snapImage()
 cam1.snapImage()
 PIL.Image.fromarray(cam1.getImage().astype("float")).save("cam1_test.tif")
 cam2.snapImage()
-PIL.Image.fromarray(cam2.getImage().astype("float")).save("cam2_test.tif")
+PIL.Image.fromarray(cam2.getImage().astype("float")).save("int_test_i0.tif")
+
+u_dm[4] = 0.3
+u_dm[7] = 0.2
+mc.set_displacement(u_dm, mirror)
+time.sleep(0.3)
+cam2.snapImage()
+PIL.Image.fromarray(cam2.getImage().astype("float")).save("int_test_i1.tif")
+
+u_dm[4] = 0.6
+u_dm[7] = -0.3
+mc.set_displacement(u_dm, mirror)
+time.sleep(0.3)
+cam2.snapImage()
+PIL.Image.fromarray(cam2.getImage().astype("float")).save("int_test_i2.tif")

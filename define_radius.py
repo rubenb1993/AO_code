@@ -36,7 +36,7 @@ centre[1] = norm_photons * np.sum(image_int * yy)
 
 x0 = centre[0]
 y0 = centre[1]
-print nx-x0, ny-y0
+print x0, y0
 
 size = 375
 mask = [np.sqrt((xx-x0)**2 + (yy-y0)**2) > size]
