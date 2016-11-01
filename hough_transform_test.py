@@ -15,6 +15,8 @@ from matplotlib import cm
 import edac40
 import matplotlib.ticker as ticker
 import math
+from scipy import signal
+import peakdetect
 #from numba import jit
 
 img = np.zeros((121,121))
@@ -30,7 +32,7 @@ def hough_lines(img):
     rhos = np.linspace(-diag_len, diag_len, 2.0*diag_len) #x-axis for plot with hough transform
 
     #pre-compute angles
-    thetas = np.deg2rad(np.linspace(-90,90, 2.0*diag_len))
+    thetas = np.deg2rad(np.linspace(-180,180, 360))
     cos_t = np.cos(thetas)
     sin_t = np.sin(thetas)
     num_thetas = len(thetas)
@@ -47,7 +49,7 @@ def hough_lines(img):
             rho = round(x * cos_t[j] + y * sin_t[j]) + diag_len
             Acc[rho, j] += 1
 
-    return Acc, rhos, thetas
+    return Acc
 
 def make_jit_arrays(img):
     width, height = img.shape
@@ -72,8 +74,39 @@ def hough_jit(img, (cos_t, sin_t, x_id, y_id, diag_len, Acc, num_thetas)):
             Acc[rho, j] += 1
     return Acc
 
+def hough_numpy(img):
+    width, height = img.shape
+    diag_len = np.ceil(np.sqrt(width*width + height*height)) #diagonal length of image 
+    rhos = np.linspace(-diag_len, diag_len, 2.0*diag_len) #x-axis for plot with hough transform
+
+    #pre-compute angles
+    thetas = np.deg2rad(np.linspace(-180,180, 360))
+    cos_t = np.cos(thetas)
+    sin_t = np.sin(thetas)
+    num_thetas = len(thetas)
+
+    Acc = np.zeros((2 * diag_len, num_thetas), dtype = np.uint64)
+    y_id, x_id = np.nonzero(img)
+    cos_tile, sin_tile = np.tile(cos_t, (len(x_id),1)), np.tile(sin_t, (len(x_id),1))
+    x_id_tile, y_id_tile = np.tile(x_id, (len(thetas),1)).T, np.tile(y_id, (len(thetas),1)).T
+    rho = np.round(x_id_tile * cos_tile + y_id_tile * sin_tile) + diag_len #precompute rho
+    rho = rho.astype(int)
+    #binning more efficiently
+    for j in range(len(x_id)):
+        for i in range(num_thetas):
+            Acc[rho[j,i], i] += 1
+
+    return Acc, rhos, thetas
+
+def max_finding(Acc):
+    ind = np.argmax(Acc)
+    x_max, y_max = np.unravel_index(ind, Acc.shape)
+    x_list = []
+    x
+    x_list.append(np.argmax(Acc1[:,y_max]))
+
 Acc = hough_jit(img, make_jit_arrays(img)) 
-#f, (ax1, ax2, ax3) = plt.subplots(1, 3)
+##f, (ax1, ax2, ax3) = plt.subplots(1, 3)
 
 impath_i0 = os.path.abspath("int_test_i0.tif")
 image_i0 = np.asarray(PIL.Image.open(impath_i0)).astype(float)
@@ -104,12 +137,22 @@ Id2_zeros[zeros_2] = 1
 mask = [np.sqrt( (xx-x0)**2 + (yy-y0)**2) >= radius]
 Id1_zeros_mask = np.ma.array(Id1_zeros, mask = mask)
 Id2_zeros_mask = np.ma.array(Id2_zeros, mask=mask)
-Acc1 = hough_jit(img, make_jit_arrays(Id1_zeros_mask)) 
+Acc1, rhos, thetas = hough_numpy(Id1_zeros_mask) #, make_jit_arrays(Id1_zeros_mask)) 
 
 minus = ax1.imshow(Id1_zeros_mask)
 ax2.imshow(Id2_zeros_mask)
-plt.colorbar(minus)
 
 f, ax = plt.subplots(1,1)
-ax.imshow(Acc1.T)
+ax.imshow(Acc1.T, extent = [np.min(rhos), np.max(rhos), np.max(thetas), np.min(thetas)], interpolation = 'none', aspect = 'auto')
+
+idmax = np.argmax(Acc1)
+rho_max, theta_max = np.unravel_index(idmax, Acc1.shape)
+f, ax = plt.subplots(1,1)
+ax.plot(Acc1[:,y_max])
+
+[max_peaks, min_peaks] = peakdetect.peakdetect(Acc1[:,theta_max], lookahead = 20, delta = 100)
+x_max_i, y_max_i = zip(*max_peaks)
+Lambda = np.sum(np.diff(x_max_i), dtype = float)/len(x_max_i)
+ax.scatter(x_max_i, y_max_i)
 plt.show()
+
