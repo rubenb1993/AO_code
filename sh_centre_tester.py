@@ -16,50 +16,51 @@ from matplotlib import cm
 import edac40
 import matplotlib.ticker as ticker
 
-#### Set up cameras
+sh, int_cam = mc.set_up_cameras()
+###### Set up cameras
+####cam1=MMCorePy.CMMCore()
+####
+####cam1.loadDevice("cam","IDS_uEye","IDS uEye")
+####cam1.initializeDevice("cam")
+####cam1.setCameraDevice("cam")
+####cam1.setProperty("cam","Pixel Clock",43)
+####cam1.setProperty("cam","Exposure",0.0668)
+##
 ##cam1=MMCorePy.CMMCore()
+##sh = cam1
 ##
 ##cam1.loadDevice("cam","IDS_uEye","IDS uEye")
 ##cam1.initializeDevice("cam")
 ##cam1.setCameraDevice("cam")
-##cam1.setProperty("cam","Pixel Clock",43)
-##cam1.setProperty("cam","Exposure",0.0668)
-
-cam1=MMCorePy.CMMCore()
-sh = cam1
-
-cam1.loadDevice("cam","IDS_uEye","IDS uEye")
-cam1.initializeDevice("cam")
-cam1.setCameraDevice("cam")
-cam1.setProperty("cam","Pixel Clock",150)
-cam1.setProperty("cam", "PixelType", '8bit mono')
-cam1.setProperty("cam","Exposure",0.0434)
-
-
+##cam1.setProperty("cam","Pixel Clock",150)
+##cam1.setProperty("cam", "PixelType", '8bit mono')
+##cam1.setProperty("cam","Exposure",0.0434)
+##
+##
+####cam2=MMCorePy.CMMCore()
+####sh = cam2
+####
+####cam2.loadDevice("cam","IDS_uEye","IDS uEye")
+####cam2.initializeDevice("cam")
+####cam2.setCameraDevice("cam")
+####cam2.setProperty("cam","Pixel Clock", 150)
+####cam2.setProperty("cam","PixelType", '8bit mono')
+####cam2.setProperty("cam","Exposure", 0.0434)
+##
+##
 ##cam2=MMCorePy.CMMCore()
-##sh = cam2
 ##
 ##cam2.loadDevice("cam","IDS_uEye","IDS uEye")
 ##cam2.initializeDevice("cam")
 ##cam2.setCameraDevice("cam")
-##cam2.setProperty("cam","Pixel Clock", 150)
-##cam2.setProperty("cam","PixelType", '8bit mono')
-##cam2.setProperty("cam","Exposure", 0.0434)
-
-
-cam2=MMCorePy.CMMCore()
-
-cam2.loadDevice("cam","IDS_uEye","IDS uEye")
-cam2.initializeDevice("cam")
-cam2.setCameraDevice("cam")
-cam2.setProperty("cam","Pixel Clock", 43)
-#cam2.setProperty("cam","PixelType", '8bit mono')
-cam2.setProperty("cam","Exposure", 0.0668)
+##cam2.setProperty("cam","Pixel Clock", 43)
+###cam2.setProperty("cam","PixelType", '8bit mono')
+##cam2.setProperty("cam","Exposure", 0.0668)
 
 global mirror
 mirror = edac40.OKOMirror("169.254.158.203") # Enter real IP in here
 px_size_sh = 5.2e-6     # width of pixels 
-r_sh_px = 410
+r_sh_px = 370
 r_sm_m = r_sh_px * px_size_sh
 u_dm = np.zeros(19)
 mc.set_displacement(u_dm, mirror)
@@ -104,14 +105,14 @@ points_filtered_inverted = np.array(points)[:, np.array(outside)]
 fig, ax = plt.subplots(figsize = plt.figaspect(1.))
 plt.scatter(points_filtered[0][:], points_filtered[1][:])
 plt.scatter(points_filtered_inverted[0][:], points_filtered_inverted[1][:], color = 'r')
-plt.scatter(weighted_avg[0], weighted_avg[1], color = 'r')
+#plt.scatter(weighted_avg[0], weighted_avg[1], color = 'r')
 plt.scatter(centres2[0], centres2[1], color = 'g')
 plt.scatter(centre_from_peaks[0], centre_from_peaks[1], color = 'k')
 circle1 = plt.Circle(centres2, r_sh_px, color = 'g', fill=False)
-circle2 = plt.Circle(weighted_avg, r_sh_px, color = 'r', fill = False)
+#circle2 = plt.Circle(weighted_avg, r_sh_px, color = 'r', fill = False)
 circle3 = plt.Circle(centre_from_peaks, r_sh_px, color = 'k', fill = False)
 ax = plt.gca()
 ax.add_artist(circle1)
-ax.add_artist(circle2)
+#ax.add_artist(circle2)
 ax.add_artist(circle3)
 plt.show()
