@@ -142,7 +142,7 @@ image_i0 = int_cam.getImage().astype(float)
 
 raw_input("first tip tilt")
 u_dm[4] -= 0.25
-u_dm[7] -= 0.35
+u_dm[7] -= 0.45
 mc.set_displacement(u_dm, mirror)
 time.sleep(2)
 int_cam.snapImage()
@@ -168,7 +168,7 @@ xx, yy = np.meshgrid(x, y)
 ss = np.sqrt(xx**2 + yy**2)
 
 
-Id_int = np.zeros((2*radius, 2*radius, 2))
+Id_int = np.zeros((2*radius, 2*radius, 3))
 Im_i0 = np.zeros((2*radius, 2*radius, 3))
 Im_i0[..., 0] = image_i0[y0-radius:y0+radius, x0-radius:x0+radius]
 Im_i0[..., 1] = image_i1[y0-radius:y0+radius, x0-radius:x0+radius]
@@ -177,6 +177,8 @@ Im_i0[..., 2] = image_i2[y0-radius:y0+radius, x0-radius:x0+radius]
 Id_int[..., 0] = Id1[y0-radius:y0+radius, x0-radius:x0+radius]
 Id_int[..., 1] = Id2[y0-radius:y0+radius, x0-radius:x0+radius]
 zeros_1, zeros_2 = np.abs(Id_int[..., 0]) <= 1, np.abs(Id_int[..., 1]) <= 1
+
+
 
 Id_zeros = np.zeros(Id_int.shape, dtype = float)
 Id_zeros[zeros_1, 0] = 1
@@ -200,9 +202,9 @@ sigma = np.zeros(2)
 x_shape = list(xx.shape)
 x_shape.append(2)
 tau_i = np.zeros(x_shape)
-tau_i2 = np.zeros(x_shape)
+#tau_i2 = np.zeros(x_shape)
 Id_hat = np.zeros(Id_int.shape)
-Id_hat2 = np.zeros(Id_int.shape)
+#Id_hat2 = np.zeros(Id_int.shape)
 
 ##f2, ax2 = plt.subplots(3,3)
 ##ax2[0,0].imshow(np.ma.array(Im_i0[...,0], mask=mask), cmap = 'bone')
@@ -217,76 +219,82 @@ for jj in range(2):
     ti[...,jj] = (2 * np.pi/ Lambda[jj]) * np.array([np.cos(theta_max), np.sin(theta_max)])
     sigma[jj] = 2 * np.pi * s_max / Lambda[jj]
     tau_i[...,jj] = -ti[0, jj] * xx + ti[1, jj] * yy
-    tau_i2[..., jj] = ti[0, jj] * xx - ti[1, jj] * yy
+    #tau_i2[..., jj] = ti[0, jj] * xx - ti[1, jj] * yy
     
     sin_ud_lr = np.zeros(tau_i.shape)
     sin_ud_lr[...,0] = np.sin((tau_i[...,jj] + sigma[...,jj])/2.0)
-    sin_ud_lr[...,1] = np.sin((tau_i2[...,jj] + sigma[...,jj])/2.0)
+    #sin_ud_lr[...,1] = np.sin((tau_i2[...,jj] + sigma[...,jj])/2.0)
     Id_hat[..., jj] = Id_int[..., jj]/(-2.0 * sin_ud_lr[...,0])
-    Id_hat2[..., jj] = Id_int[..., jj]/(-2.0 * sin_ud_lr[..., 1])
+    #Id_hat2[..., jj] = Id_int[..., jj]/(-2.0 * sin_ud_lr[..., 1])
 ##    ax2[1, jj+1].imshow(np.ma.array(Id_hat[..., jj], mask = mask), vmin = -100, vmax = 100, cmap = 'bone')
 ##    ax2[2, jj+1].imshow(np.ma.array(Id_hat2[..., jj], mask = mask), vmin = -100, vmax = 100, cmap = 'bone')
     
 d1 = (tau_i[..., 0] + sigma[0])/2.0
 d2 = (tau_i[..., 1] + sigma[1])/2.0
-d3 = (tau_i2[..., 0] + sigma[0])/2.0
-d4 = (tau_i2[..., 1] + sigma[1])/2.0
+#d3 = (tau_i2[..., 0] + sigma[0])/2.0
+#d4 = (tau_i2[..., 1] + sigma[1])/2.0
+sin_d1_d2 = np.sin(d1-d2)
+sin_d1 = np.sin(d1)
+sin_d2 = np.sin(d2)
+zero_line1 = np.abs(sin_d1) <= 5e-2
+zero_line2 = np.abs(sin_d2) <= 5e-2
+zero_line3 = np.abs(sin_d1_d2) <= 5e-2
+#Id_zeros[zeros_3, 2] = 1
+Id_zeros_all = np.zeros((2*radius, 2*radius))
+Id_zeros_all[zero_line1] = 1
+Id_zeros_all[zero_line2] = 1
+Id_zeros_all[zero_line3] = 1
+stack_mask = np.dstack((zero_line1, zero_line2, zero_line3, np.squeeze(mask)))
+complete_mask = np.any(stack_mask, axis = 2)
+assert complete_mask.shape == np.squeeze(mask).shape
 
 dshape = list(d1.shape)
 dshape.append(4)
 atanshape = list(Id_hat[...,0].shape)
 atanshape.append(4)
 atany = np.zeros(atanshape)
-atany2 = np.zeros(atanshape)
+#atany2 = np.zeros(atanshape)
 angfact = np.zeros(dshape)
 angfact[...,0] = d1 - d2
 angfact[...,1] = d1 + d2
 angfact[...,2] = -d1 + d2
 angfact[...,3] = -(d1 + d2)
-angfact2 = np.zeros(dshape)
-angfact2[...,0] = d3 - d4
-angfact2[...,1] = d3 + d4
-angfact2[...,2] = -d3 + d4
-angfact2[...,3] = -(d3 + d4)
+#angfact2 = np.zeros(dshape)
+#angfact2[...,0] = d3 - d4
+#angfact2[...,1] = d3 + d4
+#angfact2[...,2] = -d3 + d4
+#angfact2[...,3] = -(d3 + d4)
 atanx = Id_hat[...,1]
 org_phase = np.zeros(dshape)
 #f, axarr = plt.subplots(3,4)
-f, axarr = plt.subplots(1,3, figsize=(9.31,5.91))
-axarr[0].imshow(np.ma.array(Im_i0[...,0], mask = mask), cmap = 'bone')
-axarr[0].set_title('Original interferogram')
+f, axarr = plt.subplots(2,3, figsize=(9.31,5.91))
+axarr[0, 0].imshow(np.ma.array(Im_i0[...,0], mask = mask), cmap = 'bone')
+axarr[0, 0].set_title('Original interferogram', fontsize = 9)
 for i in range(4):
     atany[...,i] =(Id_hat[...,0] - np.cos(angfact[...,i]) * Id_hat[...,1])/ np.sin(angfact[...,i])
-    atany2[...,i] = (Id_hat2[...,0] - np.cos(angfact2[...,i]) * Id_hat2[...,1])/ np.sin(angfact2[...,i])
+    #atany2[...,i] = (Id_hat2[...,0] - np.cos(angfact2[...,i]) * Id_hat2[...,1])/ np.sin(angfact2[...,i])
 ##    axarr[0,i].imshow(np.ma.array(atany[...,i], mask = mask), cmap = 'bone', vmin = -100, vmax = 100)
 ##    axarr[1,i].imshow(np.sin(angfact[...,i]), cmap = 'bone')
     org_phase[...,i] = np.arctan2(atanx, atany[...,i]) - d2
 ##    axarr[2,i].imshow(np.ma.array(np.cos(org_phase[..., i]), mask=mask), cmap = 'bone')
-axarr[1].imshow(np.ma.array(np.cos(org_phase[..., 0]), mask = mask), cmap = 'bone')
-axarr[1].set_title('recovered interferogram')
-axarr[2].imshow(np.ma.array(org_phase[...,0], mask = mask), cmap = 'bone')
-axarr[2].set_title('recovered phase map')
-for i in range(3):
-    axarr[i].get_xaxis().set_ticks([])
-    axarr[i].get_yaxis().set_ticks([])
+    
+axarr[0, 1].imshow(np.ma.array(np.cos(org_phase[..., 0]), mask = mask), cmap = 'bone')
+axarr[0, 1].set_title('recovered interferogram', fontsize = 9)
+axarr[0, 2].imshow(np.ma.array(org_phase[...,0], mask = mask), cmap = 'bone')
+axarr[0, 2].set_title('recovered (wrapped) phase', fontsize = 9)
+axarr[1, 0].imshow(np.ma.array(Id_zeros_all, mask = mask), cmap = 'bone')
+axarr[1, 0].set_title('mask', fontsize = 9)
+axarr[1, 1].imshow(np.ma.array(org_phase[..., 0], mask = complete_mask), cmap = 'bone')
+axarr[1, 1].set_title('masked phase', fontsize = 9)
+axarr[1, 2].imshow(np.cos(np.ma.array(org_phase[..., 0], mask = complete_mask)), cmap = 'bone')
+axarr[1, 2].set_title('int masked phase', fontsize = 9)
+for i in range(6):
+    j = np.unravel_index(i, axarr.shape)
+    axarr[j].get_xaxis().set_ticks([])
+    axarr[j].get_yaxis().set_ticks([])
 
 plt.show(block=False)
 
 raw_input('savefig?')
 plt.savefig('phase_retrieval_interferogram.png', bbox_inches='tight')
-
-##angfact = (tau_i[...,0] - tau_i[...,1] + sigma[0] - sigma[1])/2.0
-##atany = (Id_hat[...,0] - np.cos(angfact) * Id_hat[...,1])/ np.sin(angfact)
-##atanx = Id_hat[...,1]
-##phase_delt = np.arctan2(atany, atanx)
-##phase_orig = phase_delt - (tau_i[...,1] + sigma[1])/2.0
-##phase_delt_cos = np.cos(phase_delt)
-##phase_orig_cos = np.cos(phase_orig)
-##
-##
-##f3, ax3 = plt.subplots(2,2)
-##ax3[0,0].imshow(Im_i0, cmap = 'bone')
-##ax3[0,1].imshow(atany, vmin = -100, vmax = 100, cmap = 'bone')
-##ax3[1,0].imshow(phase_orig_cos, cmap = 'bone')
-##ax3[1,1].imshow(phase_delt_cos, cmap = 'bone')
-##plt.show()
 
