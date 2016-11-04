@@ -79,10 +79,6 @@ def max_finding(Acc, rhos, thetas, lookahead = 15, delta = 30):
     theta_max = thetas[theta_max_index]
     return rho_max_i, theta_max, s_max
 
-
-#Acc = hough_jit(img, make_jit_arrays(img)) 
-##f, (ax1, ax2, ax3) = plt.subplots(1, 3)
-
 ##impath_i0 = os.path.abspath("int_test_i0.tif")
 ##image_i0 = np.asarray(PIL.Image.open(impath_i0)).astype(float)
 ##impath_i1 = os.path.abspath("int_test_i1.tif")
@@ -127,14 +123,13 @@ u_dm, x_pos_norm_f, y_pos_norm_f, x_pos_zero_f, y_pos_zero_f, V2D = mc.flat_wave
 ### Choose abberations
 a = np.zeros(j_max)
 ind = np.array([0])
-a[7] = 0.4 * wavelength
+a[8] = 0.4 * wavelength
 #a[2] = 2 * wavelength
 #a[4] = -0.25 * wavelength
 #a[6] = -0.5 * wavelength
 #a[3] = 0.5 * wavelength
 #a[6] = 0.7 * wavelength
-#_pos_zero, y_pos_zero = Hm.zero_positions(zero_image)
-#V2D = Dm.gather_displacement_matrix(mirror, sh, x_pos_zero, y_pos_zero)
+
 V2D_inv = np.linalg.pinv(V2D)
 G = LSQ.matrix_avg_gradient(x_pos_norm_f, y_pos_norm_f, j_max, r_sh_px)
 v_abb = (f_sh/(r_sh_m * px_size_sh)) * np.dot(V2D_inv, np.dot(G, a))
@@ -154,8 +149,8 @@ int_cam.snapImage()
 image_i1 = int_cam.getImage().astype(float)
 
 raw_input("second tip tilt")
-u_dm[4] -= 0.18
-u_dm[7] += 0.4
+u_dm[4] -= 0.2
+u_dm[7] += 0.15
 mc.set_displacement(u_dm, mirror)
 time.sleep(2)
 int_cam.snapImage()
@@ -183,8 +178,6 @@ Id_int[..., 0] = Id1[y0-radius:y0+radius, x0-radius:x0+radius]
 Id_int[..., 1] = Id2[y0-radius:y0+radius, x0-radius:x0+radius]
 zeros_1, zeros_2 = np.abs(Id_int[..., 0]) <= 1, np.abs(Id_int[..., 1]) <= 1
 
-##shape_id = list(Id_int.shape)
-##shape_id.append(2)
 Id_zeros = np.zeros(Id_int.shape, dtype = float)
 Id_zeros[zeros_1, 0] = 1
 Id_zeros[zeros_2, 1] = 1
@@ -200,7 +193,7 @@ Acc = np.zeros((2 * diag_len, num_thetas, 2), dtype=np.uint64)
 ##Acc1, rhos, thetas, diag_len = hough_numpy(Id1_zeros_mask, x, y)  # make_jit_arrays(Id1_zeros_mask))
 ##Acc2, rhos, thetas, diag_len = hough_numpy(Id2_zeros_mask, x, y) 
 
-f, ax = plt.subplots(2, 1)
+#f, ax = plt.subplots(2, 1)
 Lambda = np.zeros(2)
 ti = np.zeros((2,2))
 sigma = np.zeros(2)
@@ -211,13 +204,13 @@ tau_i2 = np.zeros(x_shape)
 Id_hat = np.zeros(Id_int.shape)
 Id_hat2 = np.zeros(Id_int.shape)
 
-f2, ax2 = plt.subplots(3,3)
-ax2[0,0].imshow(np.ma.array(Im_i0[...,0], mask=mask), cmap = 'bone')
+##f2, ax2 = plt.subplots(3,3)
+##ax2[0,0].imshow(np.ma.array(Im_i0[...,0], mask=mask), cmap = 'bone')
 for jj in range(2):
     Acc[...,jj], rhos, thetas, diag_len = hough_numpy(Id_zeros_mask[..., jj], x, y) 
-    ax[jj].imshow(Acc[...,jj].T, extent=[np.min(rhos), np.max(rhos), np.max(thetas), np.min(thetas)], interpolation='none',
-          aspect='auto')
-    ax2[0,jj+1].imshow(np.ma.array(Im_i0[..., jj+1], mask = mask), cmap = 'bone' )
+    #ax[jj].imshow(Acc[...,jj].T, extent=[np.min(rhos), np.max(rhos), np.max(thetas), np.min(thetas)], interpolation='none',
+          #aspect='auto')
+##    ax2[0,jj+1].imshow(np.ma.array(Im_i0[..., jj+1], mask = mask), cmap = 'bone' )
     
     rho_max_i, theta_max, s_max = max_finding(Acc[...,jj], rhos, thetas)
     Lambda[jj] = np.sum(np.diff(rho_max_i), dtype=float) / (len(rho_max_i)-1.0)
@@ -231,8 +224,8 @@ for jj in range(2):
     sin_ud_lr[...,1] = np.sin((tau_i2[...,jj] + sigma[...,jj])/2.0)
     Id_hat[..., jj] = Id_int[..., jj]/(-2.0 * sin_ud_lr[...,0])
     Id_hat2[..., jj] = Id_int[..., jj]/(-2.0 * sin_ud_lr[..., 1])
-    ax2[1, jj+1].imshow(np.ma.array(Id_hat[..., jj], mask = mask), vmin = -100, vmax = 100, cmap = 'bone')
-    ax2[2, jj+1].imshow(np.ma.array(Id_hat2[..., jj], mask = mask), vmin = -100, vmax = 100, cmap = 'bone')
+##    ax2[1, jj+1].imshow(np.ma.array(Id_hat[..., jj], mask = mask), vmin = -100, vmax = 100, cmap = 'bone')
+##    ax2[2, jj+1].imshow(np.ma.array(Id_hat2[..., jj], mask = mask), vmin = -100, vmax = 100, cmap = 'bone')
     
 d1 = (tau_i[..., 0] + sigma[0])/2.0
 d2 = (tau_i[..., 1] + sigma[1])/2.0
@@ -256,17 +249,31 @@ angfact2[...,1] = d3 + d4
 angfact2[...,2] = -d3 + d4
 angfact2[...,3] = -(d3 + d4)
 atanx = Id_hat[...,1]
-
-f, axarr = plt.subplots(3,4)
+org_phase = np.zeros(dshape)
+#f, axarr = plt.subplots(3,4)
+f, axarr = plt.subplots(1,3, figsize=(9.31,5.91))
+axarr[0].imshow(np.ma.array(Im_i0[...,0], mask = mask), cmap = 'bone')
+axarr[0].set_title('Original interferogram')
 for i in range(4):
     atany[...,i] =(Id_hat[...,0] - np.cos(angfact[...,i]) * Id_hat[...,1])/ np.sin(angfact[...,i])
     atany2[...,i] = (Id_hat2[...,0] - np.cos(angfact2[...,i]) * Id_hat2[...,1])/ np.sin(angfact2[...,i])
-    axarr[0,i].imshow(np.ma.array(atany[...,i], mask = mask), cmap = 'bone', vmin = -100, vmax = 100)
-    axarr[1,i].imshow(np.sin(angfact[...,i]), cmap = 'bone')
-    org_phase = np.arctan2(atanx, atany[...,i]) - d2
-    axarr[2,i].imshow(np.ma.array(np.cos(org_phase), mask=mask), cmap = 'bone')
+##    axarr[0,i].imshow(np.ma.array(atany[...,i], mask = mask), cmap = 'bone', vmin = -100, vmax = 100)
+##    axarr[1,i].imshow(np.sin(angfact[...,i]), cmap = 'bone')
+    org_phase[...,i] = np.arctan2(atanx, atany[...,i]) - d2
+##    axarr[2,i].imshow(np.ma.array(np.cos(org_phase[..., i]), mask=mask), cmap = 'bone')
+axarr[1].imshow(np.ma.array(np.cos(org_phase[..., 0]), mask = mask), cmap = 'bone')
+axarr[1].set_title('recovered interferogram')
+axarr[2].imshow(np.ma.array(org_phase[...,0], mask = mask), cmap = 'bone')
+axarr[2].set_title('recovered phase map')
+for i in range(3):
+    axarr[i].get_xaxis().set_ticks([])
+    axarr[i].get_yaxis().set_ticks([])
 
-plt.show()
+plt.show(block=False)
+
+raw_input('savefig?')
+plt.savefig('phase_retrieval_interferogram.png', bbox_inches='tight')
+
 ##angfact = (tau_i[...,0] - tau_i[...,1] + sigma[0] - sigma[1])/2.0
 ##atany = (Id_hat[...,0] - np.cos(angfact) * Id_hat[...,1])/ np.sin(angfact)
 ##atanx = Id_hat[...,1]
