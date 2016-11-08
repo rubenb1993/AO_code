@@ -17,50 +17,10 @@ import edac40
 import matplotlib.ticker as ticker
 
 sh, int_cam = mc.set_up_cameras()
-###### Set up cameras
-####cam1=MMCorePy.CMMCore()
-####
-####cam1.loadDevice("cam","IDS_uEye","IDS uEye")
-####cam1.initializeDevice("cam")
-####cam1.setCameraDevice("cam")
-####cam1.setProperty("cam","Pixel Clock",43)
-####cam1.setProperty("cam","Exposure",0.0668)
-##
-##cam1=MMCorePy.CMMCore()
-##sh = cam1
-##
-##cam1.loadDevice("cam","IDS_uEye","IDS uEye")
-##cam1.initializeDevice("cam")
-##cam1.setCameraDevice("cam")
-##cam1.setProperty("cam","Pixel Clock",150)
-##cam1.setProperty("cam", "PixelType", '8bit mono')
-##cam1.setProperty("cam","Exposure",0.0434)
-##
-##
-####cam2=MMCorePy.CMMCore()
-####sh = cam2
-####
-####cam2.loadDevice("cam","IDS_uEye","IDS uEye")
-####cam2.initializeDevice("cam")
-####cam2.setCameraDevice("cam")
-####cam2.setProperty("cam","Pixel Clock", 150)
-####cam2.setProperty("cam","PixelType", '8bit mono')
-####cam2.setProperty("cam","Exposure", 0.0434)
-##
-##
-##cam2=MMCorePy.CMMCore()
-##
-##cam2.loadDevice("cam","IDS_uEye","IDS uEye")
-##cam2.initializeDevice("cam")
-##cam2.setCameraDevice("cam")
-##cam2.setProperty("cam","Pixel Clock", 43)
-###cam2.setProperty("cam","PixelType", '8bit mono')
-##cam2.setProperty("cam","Exposure", 0.0668)
-
 global mirror
 mirror = edac40.OKOMirror("169.254.158.203") # Enter real IP in here
 px_size_sh = 5.2e-6     # width of pixels 
-r_sh_px = 370
+r_sh_px = 375
 r_sm_m = r_sh_px * px_size_sh
 u_dm = np.zeros(19)
 mc.set_displacement(u_dm, mirror)

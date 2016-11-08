@@ -13,66 +13,53 @@ import edac40
 import matplotlib.pyplot as plt
 import edac40
 import mirror_control as mc
+import LSQ_method as LSQ
 
 mirror = edac40.OKOMirror("169.254.158.203") # Enter real IP in here
-#u_dm = np.zeros(19)
-#mc.set_displacement(u_dm, mirror)
+sh, int_cam = mc.set_up_cameras()
 
-##cam1=MMCorePy.CMMCore()
-##
-##cam1.loadDevice("cam","IDS_uEye","IDS uEye")
-##cam1.initializeDevice("cam")
-##cam1.setCameraDevice("cam")
-##cam1.setProperty("cam","Pixel Clock",43)
-##cam1.setProperty("cam","Exposure",0.0668)
-
-cam1=MMCorePy.CMMCore()
-
-cam1.loadDevice("cam","IDS_uEye","IDS uEye")
-cam1.initializeDevice("cam")
-cam1.setCameraDevice("cam")
-cam1.setProperty("cam","Pixel Clock",150)
-cam1.setProperty("cam", "PixelType", '8bit mono')
-cam1.setProperty("cam","Exposure",0.0434)
-
-
-##cam2=MMCorePy.CMMCore()
-##
-##cam2.loadDevice("cam","IDS_uEye","IDS uEye")
-##cam2.initializeDevice("cam")
-##cam2.setCameraDevice("cam")
-##cam2.setProperty("cam","Pixel Clock", 150)
-##cam2.setProperty("cam","PixelType", '8bit mono')
-##cam2.setProperty("cam","Exposure", 0.0434)
-
-cam2=MMCorePy.CMMCore()
-
-cam2.loadDevice("cam","IDS_uEye","IDS uEye")
-cam2.initializeDevice("cam")
-cam2.setCameraDevice("cam")
-cam2.setProperty("cam","Pixel Clock", 43)
-#cam2.setProperty("cam","PixelType", '8bit mono')
-cam2.setProperty("cam","Exposure", 0.0668)
 
 u_dm = np.zeros(19)
 mc.set_displacement(u_dm, mirror)
-raw_input('make0')
-u_dm = 2.0 * np.random.rand(19) - 1.0
-u_dm[4] = 0
-u_dm[7] = 0
+time.sleep(2)
+raw_input('block DM')
+int_cam.snapImage()
+PIL.Image.fromarray(int_cam.getImage().astype("float")).save("flat_mirror.tif")
+sh.snapImage()
+image_control = sh.getImage().astype(float)
+raw_input('block REF')
+int_cam.snapImage()
+PIL.Image.fromarray(int_cam.getImage().astype("float")).save("def_mirror.tif")
+sh.snapImage()
+zero_image = sh.getImage().astype(float)
+raw_input('block none')
+int_cam.snapImage()
+PIL.Image.fromarray(int_cam.getImage().astype("float")).save("interferogram.tif")
+
+
+## Given paramters for centroid gathering and displacing
+px_size_sh = 5.2e-6     # width of pixels
+px_size_int = 5.2e-6
+f_sh = 17.6e-3            # focal length
+r_int_px = 340
+r_sh_px = 370
+r_sh_m = r_sh_px * px_size_int
+j_max= 20          # maximum fringe order
+wavelength = 632e-9 #[m]
+box_len = 35.0 #half width of subaperture box in px
+
+u_dm, x_pos_norm_f, y_pos_norm_f, x_pos_zero_f, y_pos_zero_f, V2D = mc.flat_wavefront(u_dm, zero_image, image_control, r_sh_px, r_int_px, sh, mirror, show_accepted_spots = False)
+
+a = np.zeros(j_max)
+ind = np.array([0])
+a[2] = 0.75 * wavelength
+
+V2D_inv = np.linalg.pinv(V2D)
+G = LSQ.matrix_avg_gradient(x_pos_norm_f, y_pos_norm_f, j_max, r_sh_px)
+v_abb = (f_sh/(r_sh_m * px_size_sh)) * np.dot(V2D_inv, np.dot(G, a))
+u_dm -= v_abb
 mc.set_displacement(u_dm, mirror)
-time.sleep(0.3)
-
-cam2.snapImage()
-cam1.snapImage()
-PIL.Image.fromarray(cam1.getImage().astype("float")).save("cam1_test.tif")
-cam2.snapImage()
-PIL.Image.fromarray(cam2.getImage().astype("float")).save("int_test_i0.tif")
-
-raw_input('turn1')
-cam2.snapImage()
-PIL.Image.fromarray(cam2.getImage().astype("float")).save("int_test_i1.tif")
-
-raw_input('turn2')
-cam2.snapImage()
-PIL.Image.fromarray(cam2.getImage().astype("float")).save("int_test_i2.tif")
+raw_input("remove piece of paper")
+time.sleep(0.2)
+int_cam.snapImage()
+PIL.Image.fromarray(int_cam.getImage().astype("float")).save("interferogram_75_defocus.tif")

@@ -26,6 +26,7 @@ def set_displacement(u_dm, mirror):
     mirror.set(u_l)
 
 def gather_displacement_matrix(mirror, sh, x_pos_zero, y_pos_zero):
+    raw_input('block reference mirror!')
     actuators = 19
     u_dm_0 = np.zeros(actuators)
     stroke = 0.5
@@ -53,7 +54,7 @@ def gather_displacement_matrix(mirror, sh, x_pos_zero, y_pos_zero):
     actnum=np.arange(0,19,1)
     linacts=np.where(np.logical_or(actnum==4,actnum==7))
     others=np.where(np.logical_and(actnum!=4,actnum!=7))
-
+    
     for i in np.nditer(others):
         print(i)
         voltages = np.zeros(actuators)
