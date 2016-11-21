@@ -2,7 +2,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 import scipy.fftpack as fftp
 import scipy.sparse as sparse
+import scipy.io as io
 import scipy.sparse.linalg as lin
+#import scikits-sparse.cholmod as cholmod
 
 def wrap_function(phase):
     number = np.floor((np.abs(phase) - np.pi)/ (2* np.pi)) + 1 #number of times 2pi has to be substracted/added in order to be in [-pi, pi)
@@ -10,43 +12,62 @@ def wrap_function(phase):
     return phase_wrap
 
 def delta_x(wrapped_phase, **kwargs):
-    if 'weighted' in kwargs:
-        W_min = np.minimum(W[:, 1:]**2, W[:, :wrapped_phase.shape[1]-1]**2)
-        delta_x = W_min * (wrapped_phase[:,1:] - wrapped_phase[:,:wrapped_phase.shape[1]-1])
-        zero_padding = np.zeros(wrapped_phase.shape)
-        zero_padding[:,:-1] = delta_x
-        delta_x_wrapped = wrap_function(zero_padding)
-    else:
-        delta_x = (wrapped_phase[:,1:] - wrapped_phase[:,:wrapped_phase.shape[1]-1])
-        zero_padding = np.zeros(wrapped_phase.shape)
-        zero_padding[:,:-1] = delta_x
-        delta_x_wrapped = wrap_function(zero_padding)
+##    if 'weighted' in kwargs:
+##        W_min = np.minimum(W[:, 1:]**2, W[:, :wrapped_phase.shape[1]-1]**2)
+##        delta_x = W_min * (wrapped_phase[:,1:] - wrapped_phase[:,:wrapped_phase.shape[1]-1])
+##        zero_padding = np.zeros(wrapped_phase.shape)
+##        zero_padding[:,:-1] = delta_x
+##        delta_x_wrapped = wrap_function(zero_padding)
+##    else:
+    delta_x = (wrapped_phase[:,1:] - wrapped_phase[:,:wrapped_phase.shape[1]-1])
+    zero_padding = np.zeros(wrapped_phase.shape)
+    zero_padding[:,:-1] = delta_x
+    delta_x_wrapped = wrap_function(zero_padding)
     return delta_x_wrapped
 
 def delta_y(wrapped_phase, **kwargs):
-    if 'weighted' in kwargs:
-        W_min = np.minimum(W[1:, :]**2, W[:wrapped_phase.shape[0]-1, :])
-        delta_y = W_min * (wrapped_phase[1:,:] - wrapped_phase[:wrapped_phase.shape[0]-1,:])
-        zero_padding = np.zeros(wrapped_phase.shape)
-        zero_padding[:-1,:] = delta_y
-        delta_y_wrapped = wrap_function(zero_padding)
-    else:
-        delta_y = (wrapped_phase[1:,:] - wrapped_phase[:wrapped_phase.shape[0]-1,:])
-        zero_padding = np.zeros(wrapped_phase.shape)
-        zero_padding[:-1,:] = delta_y
-        delta_y_wrapped = wrap_function(zero_padding)
+##    if 'weighted' in kwargs:
+##        W_min_1= np.minimum(W[1:, :]**2, W[:wrapped_phase.shape[0]-1, :])
+##        delta_y = W_min * (wrapped_phase[1:,:] - wrapped_phase[:wrapped_phase.shape[0]-1,:])
+##        zero_padding = np.zeros(wrapped_phase.shape)
+##        zero_padding[:-1,:] = delta_y
+##        delta_y_wrapped = wrap_function(zero_padding)
+##    else:
+    delta_y = (wrapped_phase[1:,:] - wrapped_phase[:wrapped_phase.shape[0]-1,:])
+    zero_padding = np.zeros(wrapped_phase.shape)
+    zero_padding[:-1,:] = delta_y
+    delta_y_wrapped = wrap_function(zero_padding)
     return delta_y_wrapped
 
 def rho_ij(wrapped_phase, **kwargs):
-    if 'test' in kwargs:
-        shapes = list(wrapped_phase.shape)
+##    if 'test' in kwargs:
+##        shapes = list(wrapped_phase.shape)
+##        zero_xx = np.zeros((shapes[0],shapes[1]+1))
+##        zero_yy = np.zeros((shapes[0]+1, shapes[1]))
+##        zero_xx[:, 1:] = delta_x(wrapped_phase, **kwargs)
+##        zero_xx[:, -1] = 0
+##        zero_yy[1:, :] = delta_y(wrapped_phase, **kwargs)
+##        zero_yy[-1, :] = 0
+##        rho_ij = (zero_xx[:, 1:] - zero_xx[:, :-1]) + (zero_yy[1:,:] - zero_yy[:-1, :])
+    if 'weighted' in kwargs:
+        ## weighted x part
+        shapes = list(Weight.shape)
+        zero_weight_x = np.zeros((shapes[0], shapes[1]+2))
+        zero_weight_x[:, 1:shapes[1]+1] = Weight
+        min_mat_1 = np.minimum(zero_weight_x[:, 2:]**2, zero_weight_x[:, 1:shapes[1]+1]**2)
+        min_mat_2 = np.minimum(zero_weight_x[:, 1:shapes[1]+1]**2, zero_weight_x[:, :shapes[1]]**2)
         zero_xx = np.zeros((shapes[0],shapes[1]+1))
         zero_yy = np.zeros((shapes[0]+1, shapes[1]))
+        zero_yy[1:, :] = delta_y(wrapped_phase, **kwargs) 
         zero_xx[:, 1:] = delta_x(wrapped_phase, **kwargs)
-        zero_xx[:, -1] = 0
-        zero_yy[1:, :] = delta_y(wrapped_phase, **kwargs)
-        zero_yy[-1, :] = 0
-        rho_ij = (zero_xx[:, 1:] - zero_xx[:, :-1]) + (zero_yy[1:,:] - zero_yy[:-1, :])
+        rho_ij_x = min_mat_1 * zero_xx[:, 1:] - min_mat_2 * zero_xx[:, :-1]
+        ## weighted y part
+        zero_weight_y = np.zeros((shapes[0] + 2, shapes[1]))
+        zero_weight_y[1:shapes[0]+1] = Weight
+        min_mat_3 = np.minimum(zero_weight_y[2:, :]**2, zero_weight_y[1:shapes[0]+1, :]**2)
+        min_mat_4 = np.minimum(zero_weight_y[1:shapes[0]+1, :]**2, zero_weight_y[:-2, :]**2)
+        rho_ij_y = min_mat_3 * zero_yy[1:, :] - min_mat_4 * zero_yy[:-1, :]
+        rho_ij = rho_ij_x + rho_ij_y
     else:
         shapes = list(wrapped_phase.shape)
         zero_xx = np.zeros((shapes[0],shapes[1]+1))
@@ -57,24 +78,27 @@ def rho_ij(wrapped_phase, **kwargs):
     return rho_ij
 
 def unwrap_phase_dct(wrapped_phase, xx, yy, ii, jj, M, N, **kwargs):
-##    yshape, xshape = list(wrapped_phase.shape)
-##    x, y = np.linspace(-1, 1, xshape), np.linspace(-1, 1, yshape)
-##    xx, yy = np.meshgrid(x,y)
-##    i, j = np.linspace(0, len(x)-1, len(x)), np.linspace(0, len(y)-1, len(y))
-##    ii, jj = np.meshgrid(i, j)
-##    M, N = len(x), len(y)
-
-    rho_ij_hat = fftp.dct(fftp.dct(rho_ij(wrapped_phase, **kwargs), axis = 0), axis = 1)
+    if 'rho' in kwargs:
+        rho_ij_hat = fftp.dct(fftp.dct(wrapped_phase, axis = 0), axis = 1)
+    else:
+        rho_ij_hat = fftp.dct(fftp.dct(rho_ij(wrapped_phase, **kwargs), axis = 0), axis = 1)
     denom = 2 * (np.cos(np.pi * ii / M) + np.cos(np.pi * jj / N) - 2)
     denom[0,0] = 1.0
     phi_ij_hat = rho_ij_hat/denom
     unwr_phase = 1.0/((4 * M*N)) * fftp.dct(fftp.dct(phi_ij_hat, axis = 0, type = 3), axis = 1, type = 3)
     return unwr_phase
 
+def ravel_indices(shape, *args):
+    """given a certain range of indices which are labeled inside, return an arbitrary number of vectors filtered with those indices"""
+    new_positions = []
+    for arg in args:
+        new_positions.append(np.ravel_multi_index(arg, shape))
+    return new_positions
+
 x, y = np.linspace(-1, 1, 512), np.linspace(-1, 1, 512)
 xx, yy = np.meshgrid(x, y)
 phase = 23 * xx + 25 * yy
-#phase[10:30, 10:30] = 3 * (np.random.rand(20,20) - 0.5)
+phase[250:300, 250:300] += 10 * (np.random.rand(50,50) - 0.5)
 wr_phase = wrap_function(phase)
 #wr_phase += 0.6 * (np.random.rand(xx.shape[0], yy.shape[1]) - 0.5)
 
@@ -108,90 +132,91 @@ plt.show()
 
 #### make matrix for solving 2D weighted wrapped phase
 #N = N-2
-Bdiag = -4 * sparse.eye(N**2)
+Bdiag = -4.0 * sparse.eye(N**2)
 Bupper = sparse.eye(N**2, k = 1)
 Blower = sparse.eye(N**2, k = -1)
 Buppupp = sparse.eye(N**2, k = N)
 Blowlow = sparse.eye(N**2, k = -N)
 A = Bdiag + Bupper + Blower + Buppupp + Blowlow
 
-def ravel_indices(shape, *args):
-    """given a certain range of indices which are labeled inside, return an arbitrary number of vectors filtered with those indices"""
-    new_positions = []
-    for arg in args:
-        new_positions.append(np.ravel_multi_index(arg, shape))
-    return new_positions
-
+### make unraveled indices for special nodes
 indices_left = (np.arange(1,N-1), [0]*len(np.arange(1,N-1)))
-#indices_left_ravel = np.ravel_multi_index(indices_left, (N, N))
-
 indices_right = (np.arange(1,N-1), [N-1]*len(np.arange(1, N-1)))
-#indices_right_ravel = np.ravel_multi_index(indices_right, (N, N))
-
 indices_top = ([0]*len(np.arange(1, N-1)) , np.arange(1, N-1))
-#indices_top_ravel = np.ravel_multi_index(indices_top, (N, N))
-
 indices_bot = ([N-1]*len(np.arange(1, N-1)), np.arange(1, N-1))
-#indices_bot_ravel = np.ravel_multi_index(indices_bot, (N, N))
-
-indices_left_ravel, indices_right_ravel, indices_top_ravel, indices_bot_ravel = ravel_indices((N, N), indices_left, indices_right, indices_top, indices_bot)
-
-A = A.tolil()
-A[indices_left_ravel, indices_left_ravel] *= 0.5
-A[indices_left_ravel, indices_left_ravel + N] *= 0.5
-A[indices_left_ravel, indices_left_ravel - N] *= 0.5
-A[indices_left_ravel, indices_left_ravel-1] = 0.0
-
-A[indices_right_ravel, indices_right_ravel] *= 0.5
-A[indices_right_ravel, indices_right_ravel + 1] = 0.0
-A[indices_right_ravel, indices_right_ravel + N] *= 0.5
-A[indices_right_ravel, indices_right_ravel - N] *= 0.5
-
-A[indices_top_ravel, indices_top_ravel] *= 0.5
-A[indices_top_ravel, indices_top_ravel + 1] *= 0.5
-A[indices_top_ravel, indices_top_ravel - 1] *= 0.5
-
-A[indices_bot_ravel, indices_bot_ravel] *= 0.5
-A[indices_bot_ravel, indices_bot_ravel + 1] *= 0.5
-A[indices_bot_ravel, indices_bot_ravel - 1] *= 0.5
-
 
 index_top_left = ([0],[0])
 index_top_right = ([0], [N-1])
 index_bot_left = ([N-1], [0])
 index_bot_right = ([N-1], [N-1])
 
+## ravel indices of special nodes
+indices_left_ravel, indices_right_ravel, indices_top_ravel, indices_bot_ravel = ravel_indices((N, N), indices_left, indices_right, indices_top, indices_bot)
 top_left_ravel, top_right_ravel, bot_left_ravel, bot_right_ravel = ravel_indices((N, N), index_top_left, index_top_right, index_bot_left, index_bot_right)
 
+
+## Adjust values of boundary nodes according to boundary conditions to ensure positive defniteness and symmetry## 
+A = A.tolil()
+#left boundary indices
+A[indices_left_ravel, indices_left_ravel] *= 0.5
+A[indices_left_ravel, indices_left_ravel + N] *= 0.5
+A[indices_left_ravel, indices_left_ravel - N] *= 0.5
+A[indices_left_ravel, indices_left_ravel-1] = 0.0
+
+#right boundary indices
+A[indices_right_ravel, indices_right_ravel] *= 0.5
+A[indices_right_ravel, indices_right_ravel + 1] = 0.0
+A[indices_right_ravel, indices_right_ravel + N] *= 0.5
+A[indices_right_ravel, indices_right_ravel - N] *= 0.5
+
+#top boundary indices
+A[indices_top_ravel, indices_top_ravel] *= 0.5
+A[indices_top_ravel, indices_top_ravel + 1] *= 0.5
+A[indices_top_ravel, indices_top_ravel - 1] *= 0.5
+
+#bottom boundary indices
+A[indices_bot_ravel, indices_bot_ravel] *= 0.5
+A[indices_bot_ravel, indices_bot_ravel + 1] *= 0.5
+A[indices_bot_ravel, indices_bot_ravel - 1] *= 0.5
+
+#top left corner
 A[top_left_ravel, top_left_ravel] *= 0.25
 A[top_left_ravel, top_left_ravel +1] *= 0.5
 A[top_left_ravel, top_left_ravel +N] *= 0.5
 
+#top right corner
 A[top_right_ravel, top_right_ravel] *= 0.25
 A[top_right_ravel, top_right_ravel - 1] *= 0.5
 A[top_right_ravel, top_right_ravel + N] *= 0.5
 A[top_right_ravel, top_right_ravel + 1] *= 0.0
 
+#bottom left corner
 A[bot_left_ravel, bot_left_ravel] *= 0.25
 A[bot_left_ravel, bot_left_ravel + 1] *= 0.5
 A[bot_left_ravel, bot_left_ravel - 1] *= 0.0
 A[bot_left_ravel, bot_left_ravel - N] *= 0.5
 
+#bottom right corner
 A[bot_right_ravel, bot_right_ravel - 1] *= 0.5
 A[bot_right_ravel, bot_right_ravel - N] *= 0.5
 A[bot_right_ravel, bot_right_ravel] *= 0.25
 
-A /= N**2
+#adjust for the fact that orignially it is negative definite and defined on the 2x2 square
+A /= -2
 
-##test_phase = np.arange(N**2).reshape(N,N)
-##wr_test_phase = wrap_function(test_phase)
+A_weighted = A
+
 W = np.ones((N,N))
-W[10:30, 10:30] = 0
+W[250:300, 250:300] = 0
 Weight = W
 indices_0 = np.where(W==0)
-Weight[indices_0] = 1
-rho_test_phase = rho_ij(wr_phase, test = True)#, weighted = True, W = Weight)
+weight_factor = 0.0
+Weight[indices_0] = weight_factor
+
+### adjust forcing vector values according to Neumann boundary conditions ###
+rho_test_phase = rho_ij(wr_phase, weighted = True, W = Weight)
 c = rho_test_phase.flatten()
+
 c[top_left_ravel] *= 0.25
 c[top_right_ravel] *= 0.25
 c[bot_left_ravel] *= 0.25
@@ -205,73 +230,68 @@ indices_straight = np.arange(N**2)
 indices_matrix = np.unravel_index(indices_straight, phase.shape)
 #assert (np.all(c[indices_straight] == rho_test_phase[indices_matrix]))
 #assert (np.all(rho_test_phase == c.reshape(rho_test_phase.shape)))
-c = sparse.csr_matrix(c)
+#c = sparse.csr_matrix(c)
 
 
-indices_0 = np.where(W==0)
 W_sparse = sparse.identity(N**2, format = 'lil')
 indices_1 = np.ravel_multi_index(indices_0, W.shape)
 indices_weight = ((indices_1, indices_1))
-W_sparse[indices_weight] = 1
-A.tocsr()
+W_sparse[indices_weight] = weight_factor
+A_weighted[indices_1, :] = 0.0
+A_weighted[:, indices_1] = 0.0
+#W_sparse[:, indices_1] = weight_factor
+A = A.tocsr()
+A_weighted = A_weighted.tocsr()
+io.savemat('weighted_decompose.mat', dict(A_weighted = A_weighted))
+io.savemat('to_decompose.mat', dict(A = A))
+L = io.loadmat('chol_upper_permd.mat')
+L = L['L'] #take matrix L from the structure L and save it in L
+P = io.loadmat('chol_perm_matrix.mat')
+P = P['S'] #get permutation matrix
+R_t = P.dot(L.transpose())
+
+
 W_sparse.tocsr()
 A_t = A.transpose()
 W_t = W_sparse.transpose()
-Q = A_t.dot(W_t.dot(W_sparse.dot(A)))
-P = A_t.dot(A)
-
-## precompute static matrices
-##yshape, xshape = list(rho_test_phase.shape)
-##x, y = np.linspace(-1, 1, xshape), np.linspace(-1, 1, yshape)
-##xx, yy = np.meshgrid(x,y)
-##i, j = np.linspace(0, len(x)-1, len(x)), np.linspace(0, len(y)-1, len(y))
-##ii, jj = np.meshgrid(i, j)
-##M, N = len(x), len(y)
-
+#Q = R_t.dot(W_t.dot(R_t.transpose()))
+Q = R_t.dot(W_sparse.dot(R_t.transpose()))
+#Q = R_t.dot(W_t.dot(W_sparse.dot(R_t.transpose())))
+##P = A_t.dot(A)
 
 #### solve using cg method
-#phi = lin.spsolve(A, c.transpose())
 k = 0
 phi = np.zeros(N**2)
-phi = sparse.csr_matrix(phi)
-phi = phi.transpose()
-##rho_test_phase = rho_ij(wr_phase, weighted = True, W = W)
-##c = rho_test_phase.flatten()
-##c = np.transpose(c)
 r_0 = c
-r_new = c.transpose()
-r_old = c.transpose()
+r_new = c
+r_old = c
 while k <= N**2:
-    #r_new_ravel = r_new.reshape(rho_test_phase.shape)
-    z_new = r_new
-    #z_new = lin.spsolve(P, r_new)#unwrap_phase_dct(r_new_ravel, xx, yy, ii, jj, M, M).flatten()
-    #z_new = sparse.csr_matrix(z_new)
+    r_new_ravel = r_new.reshape(rho_test_phase.shape)
+    z_new = unwrap_phase_dct(r_new_ravel, xx, yy, ii, jj, M, M, rho = True).flatten()
+    #z_new = r_new
     k += 1
     if k == 1:
         p = z_new
-        #p = p.transpose()
-        rz_dot_new = (z_new.transpose()).dot(r_new)
-        #print str(rz_dot_new)
+        rz_dot_new = (r_new.T).dot(z_new)
         beta = 1
     else:
-        rz_dot_new = (z_new.transpose()).dot(r_new)
-        #print str(rz_dot_new)
-        rz_dot_old = (z_old.transpose()).dot(r_old)
-        beta =  (rz_dot_new/rz_dot_old).item(0)
+        rz_dot_new = (r_new.T).dot(z_new)
+        rz_dot_old = (r_old.T).dot(z_old)
+        beta =  rz_dot_new/rz_dot_old
         p = z_new + beta * p
-        p = p
-    Qp = A.dot(p)
-    alpha = (rz_dot_new / ((p.transpose()).dot(Qp))).item(0)
-    phi += alpha * p
+    Qp = Q.dot(p)
+    alpha = (rz_dot_new / ((p.T).dot(Qp)))
+    phi = phi + alpha * p
     r_old = r_new
     r_new = r_old -  alpha * Qp
-    if k%20 == 0:
-        print "i = " + str(k) + "  beta = " + str(beta) + "  res = " + str(lin.norm(r_new)/lin.norm(r_0))
-    if lin.norm(r_new)/lin.norm(r_0) <= 1e-8:
+    if k%10 == 0:
+        print "i = " + str(k) + "  beta = " + str(beta) + "  res = " + str(np.linalg.norm(r_new)/np.linalg.norm(r_0))
+    if np.linalg.norm(r_new)/np.linalg.norm(r_0) <= 1e-15:
         break
     z_old = z_new
     
-phi = phi.toarray().reshape(phase.shape)/ (0.5)* N**2)
+phi = phi.reshape(phase.shape)
+phi = -phi
 f, axarr = plt.subplots(2,2)
 axarr[0,0].imshow(phase, cmap = 'bone')
 axarr[0,1].imshow(phi.reshape(phase.shape), cmap = 'bone')

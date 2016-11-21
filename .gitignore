@@ -6,3 +6,4 @@
 *.db
 *.pyc
 *.npy
+*.mat

@@ -18,7 +18,7 @@ import edac40
 import math
 import peakdetect
 
-#from numba import jit
+from numba import jit
 
 
 # Set up ranges
@@ -296,5 +296,5 @@ for i in range(6):
 plt.show(block=False)
 
 raw_input('savefig?')
-plt.savefig('phase_retrieval_interferogram.png', bbox_inches='tight')
+plt.savefig('wrong_phase_interferogram.png', bbox_inches='tight')
 
