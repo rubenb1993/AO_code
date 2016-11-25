@@ -128,8 +128,8 @@ def flat_wavefront(u_dm, zero_image, image_control, r_sh_px, r_int_px, sh, mirro
 
     #Calculate difference between flat and now, and adjust for it with scaling factor
     centroid_control = np.hstack((x_pos_flat_f, y_pos_flat_f))
+    print("start making the wavefront flat")
     for i in range(30):
-        print(i)
         sh.snapImage()
         zero_image = sh.getImage().astype(float)
         x_pos_flat_f, y_pos_flat_f = Hm.centroid_positions(x_pos_zero_f, y_pos_zero_f, zero_image, xx, yy)
@@ -139,13 +139,14 @@ def flat_wavefront(u_dm, zero_image, image_control, r_sh_px, r_int_px, sh, mirro
         u_dm -= scaling * u_dm_diff
         set_displacement(u_dm, mirror)
         time.sleep(0.05)
-        
+
+    print("wavefront should be flat now")
     if show_hist_voltage:
         plt.hist(u_dm)
 
     if np.any(np.abs(u_dm) > 1.0):
         print("maximum deflection of mirror reached")
-    print(u_dm)
+    #print(u_dm)
 
     if (show_hist_voltage or show_accepted_spots):
         plt.show()

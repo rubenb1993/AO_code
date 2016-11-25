@@ -58,6 +58,7 @@ def rho_ij(wrapped_phase, **kwargs):
     return rho_ij
 
 def unwrap_phase_dct(wrapped_phase, xx, yy, ii, jj, M, N, **kwargs):
+    "Direct phase unwrapping using Discrete Cosine Transform"
     if 'rho' in kwargs: #meaning it is already rho rather than a wrapped phase
         rho_ij_hat = fftp.dct(fftp.dct(wrapped_phase, axis = 0), axis = 1)
     else:
@@ -69,7 +70,7 @@ def unwrap_phase_dct(wrapped_phase, xx, yy, ii, jj, M, N, **kwargs):
     return unwr_phase
 
 def ravel_indices(shape, *args):
-    """given a certain range of indices which are labeled inside, return an arbitrary number of vectors filtered with those indices"""
+    """given a shape and arbitrary number of vecotrs containing indices which are unraveled, return an arbitrary number of vectors which are raveled"""
     new_positions = []
     for arg in args:
         new_positions.append(np.ravel_multi_index(arg, shape))
@@ -222,7 +223,6 @@ def pcg_algorithm(Q, c, N, tol, xx, yy, ii, jj):
     "PCG algorithm (3) from Ghiglia and Romero"
     k = 0
     phi = np.zeros(N**2)
-    r_0 = c
     r_new = c
     r_old = c
     while k <= N**2:
@@ -238,9 +238,6 @@ def pcg_algorithm(Q, c, N, tol, xx, yy, ii, jj):
             rz_dot_old = (r_old.T).dot(z_old)
             beta =  rz_dot_new/rz_dot_old
             p = z_new + beta * p
-            if np.linalg.norm(p) < tol:
-                print("converged through p")
-                break
         Qp = Q.dot(p)
         alpha = (rz_dot_new /((p.T).dot(Qp)))
         phi = phi + alpha * p
@@ -302,7 +299,6 @@ weight_factor = 0.0
 Weight[indices_0] = weight_factor
 
 A, c, A_weighted, c_weighted = least_squares_matrix(wr_phase, Weight)
-
 phi = pcg_algorithm(A_weighted, c_weighted, N, 1e-13, xx, yy, ii, jj).reshape(phase.shape)
 
 #plot rest of results

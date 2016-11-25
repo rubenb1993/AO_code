@@ -46,7 +46,7 @@ def Zernike_nm_2_j(n, m):
     
 def Zernike_power_mat(j_max):
     j_max = int(j_max)
-    n_max = np.max([Zernike_j_2_nm(j)[0] for j in range(j_max+1)]) #find maximum n as n of j_max might not be the maximum n
+    n_max = np.max([Zernike_j_2_nm(j)[0] for j in range(j_max+1)]).astype(int) #find maximum n as n of j_max might not be the maximum n
     fmat = np.zeros((n_max+1, n_max+1, j_max)) #allocate memory
     for jj in range(j_max):
         n, m_not_brug = Zernike_j_2_nm(jj+1) #brug uses different m, see later defined
@@ -71,8 +71,8 @@ def Zernike_power_mat(j_max):
                     fact *= special.binom( np.abs(l), 2*i + p)
                     fact *= special.binom( m-j, k)
                     fact *= math.factorial(n-j) / ( math.factorial(j) * math.factorial(m-j) * math.factorial(n-m-j))
-                    ypow = 2 * (i+k) + p
-                    xpow = n - 2 * (i+j+k) - p
+                    ypow = int(2 * (i+k) + p)
+                    xpow = int(n - 2 * (i+j+k) - p)
                     fmat[xpow, ypow, jj] += fact * norm 
     return fmat
         

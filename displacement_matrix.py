@@ -54,9 +54,9 @@ def gather_displacement_matrix(mirror, sh, x_pos_zero, y_pos_zero):
     actnum=np.arange(0,19,1)
     linacts=np.where(np.logical_or(actnum==4,actnum==7))
     others=np.where(np.logical_and(actnum!=4,actnum!=7))
-    
+
+    print("poking aberration actuators")
     for i in np.nditer(others):
-        print(i)
         voltages = np.zeros(actuators)
         voltages[i] += stroke
         set_displacement(voltages, mirror)
@@ -75,8 +75,8 @@ def gather_displacement_matrix(mirror, sh, x_pos_zero, y_pos_zero):
         centroid_i = np.hstack(Hm.centroid_positions(x_pos_zero, y_pos_zero, image, xx, yy))
         V2D_min[:, i] = (centroid_0 - centroid_i) / stroke
 
+    print("poking tip/tilt actuators")
     for i in np.nditer(linacts):
-        print(i)
         voltages = np.zeros(actuators)
         voltages[i] += stroke
         set_displacement(voltages, mirror)
