@@ -120,61 +120,62 @@ r_sh_m = r_sh_px * px_size_int
 j_max= 20          # maximum fringe order
 wavelength = 632e-9 #[m]
 box_len = 35.0 #half width of subaperture box in px
+newy_n = raw_input("Do you want to make new interferograms? y/n")
+if newy_n == "y":
+    ### images for making wavefront flat
+    actuators = 19
+    u_dm = np.zeros(actuators)
+    mc.set_displacement(u_dm, mirror)
+    time.sleep(0.2)
 
-### images for making wavefront flat
-actuators = 19
-u_dm = np.zeros(actuators)
-mc.set_displacement(u_dm, mirror)
-time.sleep(0.2)
+    raw_input("Did you calibrate the reference mirror? Block DM")
+    sh.snapImage()
+    image_control = sh.getImage().astype(float)
 
-raw_input("Did you calibrate the reference mirror? Block DM")
-sh.snapImage()
-image_control = sh.getImage().astype(float)
+    raw_input("block reference mirror!")
+    sh.snapImage()
+    zero_image = sh.getImage().astype(float)
 
-raw_input("block reference mirror!")
-sh.snapImage()
-zero_image = sh.getImage().astype(float)
+    ### make actual wf flat
+    u_dm, x_pos_norm_f, y_pos_norm_f, x_pos_zero_f, y_pos_zero_f, V2D = mc.flat_wavefront(u_dm, zero_image, image_control, r_sh_px, r_int_px, sh, mirror, show_accepted_spots = False)
 
-### make actual wf flat
-u_dm, x_pos_norm_f, y_pos_norm_f, x_pos_zero_f, y_pos_zero_f, V2D = mc.flat_wavefront(u_dm, zero_image, image_control, r_sh_px, r_int_px, sh, mirror, show_accepted_spots = False)
+    ### Choose abberations
+    a = np.zeros(j_max)
+    ind = np.array([0])
+    a[3] = 0.1 * wavelength
+    a[2] = 0.5 * wavelength
+    a[5] = -0.3 * wavelength
 
+    V2D_inv = np.linalg.pinv(V2D)
+    G = LSQ.matrix_avg_gradient(x_pos_norm_f, y_pos_norm_f, j_max, r_sh_px)
+    v_abb = (f_sh/(r_sh_m * px_size_sh)) * np.dot(V2D_inv, np.dot(G, a))
+    u_dm -= v_abb
+    mc.set_displacement(u_dm, mirror)
 
-### Choose abberations
-a = np.zeros(j_max)
-ind = np.array([0])
-a[3] = 0.1 * wavelength
-a[2] = 0.5 * wavelength
-a[5] = -0.3 * wavelength
-#a[4] = -0.25 * wavelength
-#a[6] = -0.5 * wavelength
-#a[3] = 0.5 * wavelength
-#a[6] = 0.7 * wavelength
+    raw_input("remove piece of paper")
+    time.sleep(0.2)
+    int_cam.snapImage()
+    image_i0 = int_cam.getImage().astype(float)
+    PIL.Image.fromarray(image_i0).save("20161125_interferograms_for_theory/interferogram_0.tif")
 
-V2D_inv = np.linalg.pinv(V2D)
-G = LSQ.matrix_avg_gradient(x_pos_norm_f, y_pos_norm_f, j_max, r_sh_px)
-v_abb = (f_sh/(r_sh_m * px_size_sh)) * np.dot(V2D_inv, np.dot(G, a))
-u_dm -= v_abb
-mc.set_displacement(u_dm, mirror)
+    raw_input("tip and tilt 1")
+    time.sleep(1)
+    int_cam.snapImage()
+    image_i1 = int_cam.getImage().astype(float)
+    PIL.Image.fromarray(image_i1).save("20161125_interferograms_for_theory/interferogram_1.tif")
 
-raw_input("remove piece of paper")
-time.sleep(0.2)
-int_cam.snapImage()
-image_i0 = int_cam.getImage().astype(float)
-PIL.Image.fromarray(image_i0).save("20161125_interferograms_for_theory/interferogram_0.tif")
+    raw_input("tip and tilt 2")
+    time.sleep(1)
+    int_cam.snapImage()
+    image_i2 = int_cam.getImage().astype(float)
+    PIL.Image.fromarray(image_i2).save("20161125_interferograms_for_theory/interferogram_2.tif")
 
-raw_input("tip and tilt 1")
-time.sleep(1)
-int_cam.snapImage()
-image_i1 = int_cam.getImage().astype(float)
-PIL.Image.fromarray(image_i1).save("20161125_interferograms_for_theory/interferogram_1.tif")
-
-raw_input("tip and tilt 2")
-time.sleep(1)
-int_cam.snapImage()
-image_i2 = int_cam.getImage().astype(float)
-PIL.Image.fromarray(image_i2).save("20161125_interferograms_for_theory/interferogram_2.tif")
-
-
+else:
+    #impath_i0 = os.path.abspath("20161125_interferograms_for_theory/interferogram_0.tif")
+    image_i0 = np.array(PIL.Image.open("20161125_interferograms_for_theory/interferogram_0.tif"))
+    image_i1 = np.array(PIL.Image.open("20161125_interferograms_for_theory/interferogram_1.tif"))
+    image_i2 = np.array(PIL.Image.open("20161125_interferograms_for_theory/interferogram_2.tif"))
+    
 Id1 = image_i1 - image_i0
 Id2 = image_i2 - image_i0
 
@@ -221,14 +222,15 @@ x_shape.append(2)
 tau_i = np.zeros(x_shape)
 Id_hat = np.zeros(Id_int.shape)
 theta_max = np.zeros(2)
+s_max = np.zeros(2)
 print("making hough transforms... crunch crunch")
 
 for jj in range(2):
     Acc[...,jj], rhos, thetas, diag_len = hough_numpy(Id_zeros_mask[..., jj], x, y)     
-    rho_max_i, theta_max[jj], s_max = max_finding(Acc[...,jj], rhos, thetas)
+    rho_max_i, theta_max[jj], s_max[jj] = max_finding(Acc[...,jj], rhos, thetas)
     Lambda[jj] = np.sum(np.diff(rho_max_i), dtype=float) / (len(rho_max_i)-1.0)
     ti[...,jj] = (2 * np.pi/ Lambda[jj]) * np.array([np.cos(theta_max[jj]), np.sin(theta_max[jj])])
-    sigma[jj] = 2 * np.pi * s_max / Lambda[jj]
+    sigma[jj] = 2 * np.pi * s_max[jj] / Lambda[jj]
     tau_i[...,jj] = -ti[0, jj] * xx + ti[1, jj] * yy
     
     sin_shift = np.zeros(tau_i.shape)
@@ -236,59 +238,8 @@ for jj in range(2):
     Id_hat[..., jj] = Id_int[..., jj]/(-2.0 * sin_shift[...,jj])
 
 
+print("theta = " + str(theta_max/np.pi) + "lambda = " + str(Lambda) + "s = " + str(s_max))
 
-yn = raw_input("Plot? y/n")
-if (yn == 'y'):
-    mask = [np.sqrt((xx) ** 2 + (yy) ** 2) >= radius]
-    titles = [r'a)', r'b)', r'c)']
-    f, axarr = plt.subplots(1,3, figsize=(4.98,3.07), frameon = False)
-    for i in range(3):
-        im1 = axarr[i].imshow(np.ma.array(Im_i0[..., i], mask = mask), cmap = 'bone', vmin = 0, vmax = 170)
-        set_subplot_interferograms(axarr[i])
-    make_colorbar(f, im1)
-    f2, axarr2 = plt.subplots(1,2, figsize = (4.98 * 0.66, 3.07))
-    f3, axarr3 = plt.subplots(1,2, figsize = (4.98 * 0.66, 3.07))
-    f4, axarr4 = plt.subplots(2, 1, figsize = (4.98, 3.07))
-    f5, axarr5 = plt.subplots(1,2, figsize = (4.98 * 0.66, 3.07))
-    for i in range(2):
-        #differences
-        im2 = axarr2[i].imshow(np.ma.array(Id_int[..., i], mask = mask), cmap = 'bone', vmin = -170, vmax = 170)
-        set_subplot_interferograms(axarr2[i])
-        #zeros
-        im3 = axarr3[i].imshow(np.ma.array(Id_zeros[..., i], mask = mask), cmap = 'bone_r')
-        set_subplot_interferograms(axarr3[i])
-        ## Hough transform
-        no_ticks_x = np.arange(0,5)
-        no_ticks_y = np.arange(0,5,2)
-        tick_size_x, tick_size_y = (np.array(Acc[...,i].shape) -1)/4.0 #first x than y because it is already transposed
-        x_ticks_orig, y_ticks_orig = np.rint(tick_size_x * no_ticks_x).astype(int), np.rint(tick_size_y * no_ticks_y).astype(int)
-        x_ticks_new = np.round(rhos[x_ticks_orig]).astype(int)
-        y_ticks_new = [r'$0$', r'$\frac{\pi}{2}$', r'$\pi$']
-        x_ticks_new[2] = 0.0
-        im4 = axarr4[i].imshow(Acc[...,i].T, interpolation='none', cmap = 'bone', origin = 'lower')
-        axarr4[i].set_xticks(x_ticks_orig)
-        axarr4[i].set_xticklabels(x_ticks_new, fontsize = 9)
-        axarr4[i].set_yticks(y_ticks_orig)
-        axarr4[i].set_yticklabels(y_ticks_new, fontsize = 9)
-        axarr4[i].set_title(titles[i], fontsize = 9, loc = 'left')
-        ## sinuses
-        im5 = axarr5[i].imshow(np.ma.array(Id_hat[..., i], mask = mask), cmap = 'bone', vmin = -170, vmax = 170)
-        set_subplot_interferograms(axarr5[i])
-    make_colorbar(f2, im2)
-    make_colorbar(f5, im5)
-    axarr4[1].set_xlabel(r'$\rho$')
-    axarr4[1].set_ylabel(r'$\theta$')
-    f.savefig('original_interferograms.png', bbox_inches='tight', dpi = 1200)
-    f2.savefig('difference_interferograms.png', bbox_inches = 'tight', dpi = 1200)
-    f3.savefig('zeros_diff_interferograms.png', bbox_inches = 'tight', dpi = 1200)
-    f4.savefig('hough_accumulator.png', bbox_inches = 'tight', dpi = 1200)
-    f5.savefig('I_hat_interferograms.png', bbox_inches = 'tight', dpi = 1200)
-    plt.show() 
-else:
-    print("input not y, assuming n")
-    #break
-
-    
 d1 = (tau_i[..., 0] + sigma[0])/2.0
 d2 = (tau_i[..., 1] + sigma[1])/2.0
 sin_d1_d2 = np.sin(d1-d2)
@@ -313,13 +264,92 @@ angfact = np.zeros(d1.shape)
 angfact = d1 - d2
 atany = Id_hat[...,1]
 org_phase = np.zeros(d1.shape)
+atanx =(Id_hat[...,0] - np.cos(angfact) * Id_hat[...,1])/ np.sin(angfact)
+org_phase = np.arctan2(atany, atanx)
+
+
+yn = raw_input("Plot? y/n")
+if (yn == 'y'):
+    mask = [np.sqrt((xx) ** 2 + (yy) ** 2) >= radius]
+    titles = [r'a)', r'b)', r'c)']
+    f, axarr = plt.subplots(1,3, figsize=(4.98,3.07), frameon = False)
+    for i in range(3):
+        im1 = axarr[i].imshow(np.ma.array(Im_i0[..., i], mask = mask), cmap = 'bone', vmin = 0, vmax = 170)
+        set_subplot_interferograms(axarr[i])
+    make_colorbar(f, im1)
+    f2, axarr2 = plt.subplots(1,2, figsize = (4.98 * 0.66, 3.07))
+    f3, axarr3 = plt.subplots(1,2, figsize = (4.98 * 0.66, 3.07))
+    f4, axarr4 = plt.subplots(2, 1, figsize = (4.98, 3.07))
+    f5, axarr5 = plt.subplots(1,2, figsize = (4.98 * 0.66, 3.07))
+    f6, axarr6 = plt.subplots(1,1, figsize = (4.98 * 0.33, 3.07))
+    for i in range(2):
+        #differences
+        im2 = axarr2[i].imshow(np.ma.array(Id_int[..., i], mask = mask), cmap = 'bone', vmin = -170, vmax = 170)
+        set_subplot_interferograms(axarr2[i])
+        #zeros
+        im3 = axarr3[i].imshow(np.ma.array(Id_zeros[..., i], mask = mask), cmap = 'bone_r')
+        set_subplot_interferograms(axarr3[i])
+        ## Hough transform
+        no_ticks_x = np.arange(0,5)
+        no_ticks_y = np.arange(0,5,2)
+        tick_size_x, tick_size_y = (np.array(Acc[...,i].shape) -1)/4.0 #first x than y because it is already transposed
+        x_ticks_orig, y_ticks_orig = np.rint(tick_size_x * no_ticks_x).astype(int), np.rint(tick_size_y * no_ticks_y).astype(int)
+        x_ticks_new = np.round(rhos[x_ticks_orig]).astype(int)
+        y_ticks_new = [r'$0$', r'$\frac{\pi}{2}$', r'$\pi$']
+        x_ticks_new[2] = 0.0
+        im4 = axarr4[i].imshow(Acc[...,i].T, interpolation='none', cmap = 'bone_r', origin = 'lower')
+        axarr4[i].set_xticks(x_ticks_orig)
+        axarr4[i].set_xticklabels(x_ticks_new, fontsize = 9)
+        axarr4[i].set_yticks(y_ticks_orig)
+        axarr4[i].set_yticklabels(y_ticks_new, fontsize = 9)
+        axarr4[i].set_title(titles[i], fontsize = 9, loc = 'left')
+        ## sinuses
+        im5 = axarr5[i].imshow(np.ma.array(Id_hat[..., i], mask = mask), cmap = 'bone', vmin = -170, vmax = 170)
+        set_subplot_interferograms(axarr5[i])
+    im6 = axarr6.imshow(np.ma.array(org_phase, mask = mask), cmap = 'bone', vmin = -np.pi, vmax = np.pi)
+    axarr6.get_xaxis().set_ticks([])
+    axarr6.get_yaxis().set_ticks([])
+    axarr6.axis('off')
+    make_colorbar(f2, im2)
+    make_colorbar(f5, im5)
+    ## subplot 3 special colorbar
+    f3.subplots_adjust(right = 0.8)
+    cbar_ax = f3.add_axes([0.85, 0.3, 0.05, 0.4])
+    cbar = f3.colorbar(im3, cax = cbar_ax, ticks = [0, 1])
+    cbar.ax.tick_params(labelsize = 6)
+    cbar.set_label('Intensity level', size = 7)
+    
+    ## subplot 6 special colorbar
+    f6.subplots_adjust(right=0.8)
+    cbar_ax = f6.add_axes([0.85, 0.3, 0.05, 0.4])
+    cbar = f6.colorbar(im6, cax = cbar_ax, ticks = [-np.pi, 0, np.pi])
+    #tick_locator = ticker.MaxNLocator(nbins = 5)
+    #cbar.locator = tick_locator
+    cbar.ax.set_yticklabels([r'$-\pi$', r'$0$', r'$\pi$'])
+    #cbar.update_ticks()
+    cbar.ax.tick_params(labelsize = 6)
+    cbar.set_label('Intensity level', size = 7)
+
+
+
+    axarr4[1].set_xlabel(r'$\rho$')
+    axarr4[1].set_ylabel(r'$\theta$')
+    f.savefig('original_interferograms.png', bbox_inches='tight', dpi = 1200)
+    f2.savefig('difference_interferograms.png', bbox_inches = 'tight', dpi = 1200)
+    f3.savefig('zeros_diff_interferograms.png', bbox_inches = 'tight', dpi = 1200)
+    f4.savefig('hough_accumulator.png', bbox_inches = 'tight', dpi = 1200)
+    f5.savefig('I_hat_interferograms.png', bbox_inches = 'tight', dpi = 1200)
+    f6.savefig('recovered_phase.png', bbox_inches = 'tight', dpi = 1200)
+    plt.show() 
+else:
+    print("input not y, assuming n")
+    #break
+
+    
 #f, axarr = plt.subplots(3,4)
 f, axarr = plt.subplots(2,3, figsize=(9.31,5.91))
 axarr[0, 0].imshow(np.ma.array(Im_i0[...,2], mask = mask), cmap = 'bone')
 axarr[0, 0].set_title('Original 2nd shifted', fontsize = 9)
-atanx =(Id_hat[...,0] - np.cos(angfact) * Id_hat[...,1])/ np.sin(angfact)
-org_phase = np.arctan2(atany, atanx)
-    
 axarr[0, 1].imshow(np.ma.array(np.cos(org_phase), mask = mask), cmap = 'bone')
 axarr[0, 1].set_title('recovered interferogram', fontsize = 9)
 axarr[0, 2].imshow(np.ma.array(org_phase, mask = mask), cmap = 'bone')
