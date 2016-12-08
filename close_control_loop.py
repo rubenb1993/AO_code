@@ -25,27 +25,10 @@ def vec2str(vec):
     else:
         return str(vec[0])
 
-### Define font for figures
-##rc('font', **{'family': 'serif', 'serif': ['Computer Modern'], 'size' : 7})
-##rc('text', usetex=False)
+# Define font for figures
+rc('font', **{'family': 'serif', 'serif': ['Computer Modern'], 'size' : 7})
+rc('text', usetex=False)
 
-#### Set up cameras and mirror
-global mirror
-mirror = edac40.OKOMirror("169.254.158.203") # Enter real IP in here
-sh, int_cam = mc.set_up_cameras()
-
-actuators = 19
-u_dm = np.zeros(actuators)
-mc.set_displacement(u_dm, mirror)
-time.sleep(0.2)
-
-raw_input("Did you calibrate the reference mirror? Block DM")
-sh.snapImage()
-image_control = sh.getImage().astype(float)
-
-raw_input("block reference mirror!")
-sh.snapImage()
-zero_image = sh.getImage().astype(float)
 
 ## Given paramters for centroid gathering
 px_size_sh = 5.2e-6     # width of pixels
@@ -58,46 +41,120 @@ j_max= 20          # maximum fringe order
 wavelength = 632e-9 #[m]
 box_len = 35.0 #half width of subaperture box in px
 
-### make flat wavefront
-u_dm, x_pos_norm_f, y_pos_norm_f, x_pos_zero_f, y_pos_zero_f, V2D = mc.flat_wavefront(u_dm, zero_image, image_control, r_sh_px, r_int_px, sh, mirror, show_accepted_spots = True)
+## image making parameters
+dpi_num = 600
+int_im_size = (4.98, 3.07)
+int_im_size_23 = (0.66 * 4.98, 3.07)
+int_im_size_13 = (0.33 * 4.98, 3.07)
 
-##
-raw_input('remove black paper!')
-int_cam.snapImage()
-flat_wf = int_cam.getImage().astype('float')
-flat_wf = np.flipud(flat_wf)
-flat_wf = np.fliplr(flat_wf)
+#### Set up cameras and mirror
+new_yn = raw_input("do you want to take new images? y/n")
+foler_name = "20161130_five_inter_test/"
+if new_yn == 'y':
+    global mirror
+    mirror = edac40.OKOMirror("169.254.158.203") # Enter real IP in here
+    sh, int_cam = mc.set_up_cameras()
+
+    actuators = 19
+    u_dm = np.zeros(actuators)
+    mc.set_displacement(u_dm, mirror)
+    time.sleep(0.2)
+
+    raw_input("Did you calibrate the reference mirror? Block DM")
+    sh.snapImage()
+    image_ref_mirror = sh.getImage().astype(float)
+    PIL.Image.fromarray(image_ref_mirror).save(folder_name + "image_ref_mirror.tif")
 
 
-G = LSQ.matrix_avg_gradient(x_pos_norm_f, y_pos_norm_f, j_max, r_sh_px)
-a = np.zeros(j_max)
+    raw_input("block reference mirror!")
+    sh.snapImage()
+    zero_pos_dm = sh.getImage().astype(float)
+    PIL.Image.fromarray(zero_pos_dm).save(folder_name + "zero_pos_dm.tif")
 
-ind = np.array([0])
-#a[ind] = 0.15 * wavelength
-a[ind] = 3 * wavelength
+    ### make flat wavefront
+    u_dm, x_pos_norm_f, y_pos_norm_f, x_pos_zero_f, y_pos_zero_f, V2D = mc.flat_wavefront(u_dm, zero_pos_dm, image_ref_mirror, r_sh_px, r_int_px, sh, mirror, show_accepted_spots = True)
 
-u_dm_flat = u_dm
-V2D_inv = np.linalg.pinv(V2D)
-v_abb = (f_sh/(r_sh_m * px_size_sh)) * np.dot(V2D_inv, np.dot(G, a))
-u_dm -= v_abb
+    ##
+##    raw_input('remove black paper!')
+##    int_cam.snapImage()
+##    flat_wf = int_cam.getImage().astype('float')
+##    flat_wf = np.flipud(flat_wf)
+##    flat_wf = np.fliplr(flat_wf)
 
-if np.any(np.abs(u_dm) > 1.0):
-    print("maximum deflection of mirror reached")
-    print(u_dm)
+
+    G = LSQ.matrix_avg_gradient(x_pos_norm_f, y_pos_norm_f, j_max, r_sh_px)
+    a = np.zeros(j_max)
+
+    ind = np.array([0])
+    #a[ind] = 0.15 * wavelength
+    a[ind] = 3 * wavelength
+
+    u_dm_flat = u_dm
+    #V2D_inv = np.linalg.pinv(V2D)
+    v_abb = (f_sh/(r_sh_m * px_size_sh)) * np.linalg.lstsq(V2D, np.dot(G, a))[0]#np.dot(V2D_inv, np.dot(G, a))
+    u_dm -= v_abb
+
+    if np.any(np.abs(u_dm) > 1.0):
+        print("maximum deflection of mirror reached")
+        print(u_dm)
+        
+    mc.set_displacement(u_dm, mirror)
+
+    raw_input("keep it covered!")
+    sh.snapImage()
+    dist_image = sh.getImage().astype('float')
+    PIL.Image.fromarray(dist_image).save(folder_name + "dist_image.tif")
+
+    raw_input("remove piece of paper")
+    time.sleep(0.2)
+    int_cam.snapImage()
+    image_i0 = int_cam.getImage().astype(float)
+    PIL.Image.fromarray(image_i0).save(folder_name + "interferogram_0.tif")
+
+    raw_input("tip and tilt 1")
+    time.sleep(1)
+    int_cam.snapImage()
+    image_i1 = int_cam.getImage().astype(float)
+    PIL.Image.fromarray(image_i1).save(folder_name + "interferogram_1.tif")
+
+    raw_input("tip and tilt 2")
+    time.sleep(1)
+    int_cam.snapImage()
+    image_i2 = int_cam.getImage().astype(float)
+    PIL.Image.fromarray(image_i2).save(folder_name + "interferogram_2.tif")
+
+    raw_input("tip and tilt 3")
+    time.sleep(1)
+    int_cam.snapImage()
+    image_i3 = int_cam.getImage().astype(float)
+    PIL.Image.fromarray(image_i3).save(folder_name + "interferogram_3.tif")
+
+    raw_input("tip and tilt 4")
+    time.sleep(1)
+    int_cam.snapImage()
+    image_i4 = int_cam.getImage().astype(float)
+    PIL.Image.fromarray(image_i4).save(folder_name + "interferogram_4.tif")
+else:
+    zero_image = np.array(PIL.Image.open(folder_name + "zero_image.tif"))
+    dist_image = np.array(PIL.Image.open(folder_name + "zero_image.tif"))
+    image_i0 = np.array(PIL.Image.open(folder_name + "interferogram_0.tif"))
+    image_i1 = np.array(PIL.Image.open(folder_name + "interferogram_1.tif"))
+    image_i2 = np.array(PIL.Image.open(folder_name + "interferogram_2.tif"))
+    image_i3 = np.array(PIL.Image.open(folder_name + "interferogram_3.tif"))
+    image_i4 = np.array(PIL.Image.open(folder_name + "interferogram_4.tif"))
+
+
+## Shack Hartmann methods
+a_measured_new = LSQ.LSQ_coeff(x_pos_zero_f, y_pos_zero_f, G, image_ref_mirror, dist_image, px_size_sh, r_sh_px, f_sh, j_max)
+a_janss_check = janssen.coeff(x_pos_zero_f, y_pos_zero_f, image_ref_mirror, dist_image, px_size_sh, f_sh, r_sh_m, j_max)
+
+
+## interferogram analysis
+## centre and radius of interferogam. Done by eye, with the help of define_radius.py
+x0 = 550
+y0 = 484
+radius = 340
     
-mc.set_displacement(u_dm, mirror)
-
-raw_input("dont touch anything now")
-time.sleep(0.5)
-int_cam.snapImage()
-interferogram = int_cam.getImage().astype('float')
-interferogram = np.flipud(interferogram)
-interferogram = np.fliplr(interferogram)
-
-raw_input("re-cover the reference mirror")
-a_measured_new = LSQ.LSQ_coeff(x_pos_zero_f, y_pos_zero_f, G, image_control, sh, px_size_sh, r_sh_px, f_sh, j_max)
-a_janss_check = janssen.coeff(x_pos_zero_f, y_pos_zero_f, image_control, sh, px_size_sh, f_sh, r_sh_m, j_max)
-
 circle1 = plt.Circle((375,375), 375, color = 'white', fill=False, linewidth = 2)
 f, axarr = plt.subplots(2, 3, figsize=(9.31,5.91))
 axarr[0,0].set_title('flat wavefront', fontsize = 9)

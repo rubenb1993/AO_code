@@ -4,10 +4,19 @@ import scipy.fftpack as fftp
 import scipy.sparse as sparse
 import scipy.sparse.linalg as lin
 
-def wrap_function(phase):
-    number = np.floor((np.abs(phase) - np.pi)/ (2* np.pi)) + 1 #number of times 2pi has to be substracted/added in order to be in [-pi, pi)
-    phase_wrap = (phase - (np.sign(phase) * number * 2 * np.pi))
+def wrap_function(phase, **kwargs):
+    """wraps function s.t. phase = 0 is zero, and bounded between -pi and pi.
+    include original in kwargs to have the old version of wrapping"""
+    if 'original' in kwargs:
+        number = np.floor((np.abs(phase) - np.pi)/ (2* np.pi)) + 1 #number of times 2pi has to be substracted/added in order to be in [-pi, pi)
+        phase_wrap = (phase - (np.sign(phase) * number * 2 * np.pi))
+    else:
+        phase_wrap = np.mod(phase - np.pi, 2*np.pi) - np.pi
     return phase_wrap
+
+##def wrap_function(phase):
+##    phase_wrap = np.mod(phase - np.pi, 2*np.pi) - np.pi
+##    return phase_wrap
 
 def delta_x(wrapped_phase):
     "Equation 2 from Ghiglia and Romero"
@@ -383,8 +392,11 @@ def filter_wrapped_phase(image, k):
 
     return filt_psi
     
-def phase_derivative_var_map(delta_x, delta_y, k):
-    ny, nx = delta_x.shape
+def phase_derivative_var_map(image, k):
+    dx_phase = delta_x(image)
+    dy_phase = delta_y(image)
+
+    ny, nx = dx_phase.shape
     assert(ny == nx) ## assert a square image for simplicity
     if (k%2 == 0):
         print("k  has to be an uneven integer!")
@@ -407,9 +419,9 @@ def phase_derivative_var_map(delta_x, delta_y, k):
     all_coords = inside_tile + coords_add### a matrix of len(inside) x (k/2)**2 with all coordinates in a k x k square around a certain coordinate
     unrav_coords = np.unravel_index(all_coords, (N, N)) ## unraveled coordinates of all coordinates
     
-    avg_x, avg_y = np.sum(delta_x[unrav_coords], axis = 1)/k**2, np.sum(delta_y[unrav_coords], axis = 1)/k**2
+    avg_x, avg_y = np.sum(dx_phase[unrav_coords], axis = 1)/k**2, np.sum(dy_phase[unrav_coords], axis = 1)/k**2
     avg_x_tile, avg_y_tile = np.tile(avg_x, (all_coords.shape[1], 1)).T, np.tile(avg_y, (all_coords.shape[1], 1)).T
-    sum_x, sum_y = np.sum(np.square(delta_x[unrav_coords] - avg_x_tile), axis = 1), np.sum(np.square(delta_y[unrav_coords] - avg_y_tile), axis = 1)
+    sum_x, sum_y = np.sum(np.square(dx_phase[unrav_coords] - avg_x_tile), axis = 1), np.sum(np.square(dy_phase[unrav_coords] - avg_y_tile), axis = 1)
     zmn[np.unravel_index(inside, (N, N))] = (np.sqrt(sum_x) + np.sqrt(sum_y)) / (k**2)
 
 
@@ -424,9 +436,9 @@ def phase_derivative_var_map(delta_x, delta_y, k):
         top_tile = np.tile(top, (coords_add.shape[1],1)).T
         top_coords = top_tile + coords_add
         unrav_coords = np.unravel_index(top_coords, (N, N))
-        avg_x, avg_y = np.sum(delta_x[unrav_coords], axis = 1)/k**2, np.sum(delta_y[unrav_coords], axis = 1)/k**2
+        avg_x, avg_y = np.sum(dx_phase[unrav_coords], axis = 1)/k**2, np.sum(dy_phase[unrav_coords], axis = 1)/k**2
         avg_x_tile, avg_y_tile = np.tile(avg_x, (top_coords.shape[1], 1)).T, np.tile(avg_y, (top_coords.shape[1], 1)).T
-        sum_x, sum_y = np.sum(np.square(delta_x[unrav_coords] - avg_x_tile), axis = 1), np.sum(np.square(delta_y[unrav_coords] - avg_y_tile), axis = 1)
+        sum_x, sum_y = np.sum(np.square(dx_phase[unrav_coords] - avg_x_tile), axis = 1), np.sum(np.square(dy_phase[unrav_coords] - avg_y_tile), axis = 1)
         zmn[np.unravel_index(top, (N, N))] = (np.sqrt(sum_x) + np.sqrt(sum_y)) / (k**2)
 ##        sum_sin_top = np.sum(np.sin(image[unrav_coords]), axis = 1)
 ##        sum_cos_top = np.sum(np.cos(image[unrav_coords]), axis = 1)
@@ -441,9 +453,9 @@ def phase_derivative_var_map(delta_x, delta_y, k):
         bot_tile = np.tile(bot, (coords_add.shape[1],1)).T
         bot_coords = bot_tile + coords_add
         unrav_coords = np.unravel_index(bot_coords, (N, N))
-        avg_x, avg_y = np.sum(delta_x[unrav_coords], axis = 1)/k**2, np.sum(delta_y[unrav_coords], axis = 1)/k**2
+        avg_x, avg_y = np.sum(dx_phase[unrav_coords], axis = 1)/k**2, np.sum(dy_phase[unrav_coords], axis = 1)/k**2
         avg_x_tile, avg_y_tile = np.tile(avg_x, (bot_coords.shape[1], 1)).T, np.tile(avg_y, (bot_coords.shape[1], 1)).T
-        sum_x, sum_y = np.sum(np.square(delta_x[unrav_coords] - avg_x_tile), axis = 1), np.sum(np.square(delta_y[unrav_coords] - avg_y_tile), axis = 1)
+        sum_x, sum_y = np.sum(np.square(dx_phase[unrav_coords] - avg_x_tile), axis = 1), np.sum(np.square(dy_phase[unrav_coords] - avg_y_tile), axis = 1)
         zmn[np.unravel_index(bot, (N, N))] = (np.sqrt(sum_x) + np.sqrt(sum_y)) / (k**2)
 
         ## indices directly left of the "inside square"
@@ -454,9 +466,9 @@ def phase_derivative_var_map(delta_x, delta_y, k):
         left_tile = np.tile(left, (coords_add.shape[1],1)).T
         left_coords = left_tile + coords_add
         unrav_coords = np.unravel_index(left_coords, (N, N))
-        avg_x, avg_y = np.sum(delta_x[unrav_coords], axis = 1)/k**2, np.sum(delta_y[unrav_coords], axis = 1)/k**2
+        avg_x, avg_y = np.sum(dx_phase[unrav_coords], axis = 1)/k**2, np.sum(dy_phase[unrav_coords], axis = 1)/k**2
         avg_x_tile, avg_y_tile = np.tile(avg_x, (left_coords.shape[1], 1)).T, np.tile(avg_y, (left_coords.shape[1], 1)).T
-        sum_x, sum_y = np.sum(np.square(delta_x[unrav_coords] - avg_x_tile), axis = 1), np.sum(np.square(delta_y[unrav_coords] - avg_y_tile), axis = 1)
+        sum_x, sum_y = np.sum(np.square(dx_phase[unrav_coords] - avg_x_tile), axis = 1), np.sum(np.square(dy_phase[unrav_coords] - avg_y_tile), axis = 1)
         zmn[np.unravel_index(left, (N, N))] = (np.sqrt(sum_x) + np.sqrt(sum_y)) / (k**2)
 
         ## indices directly left of the "inside square"
@@ -467,9 +479,9 @@ def phase_derivative_var_map(delta_x, delta_y, k):
         right_tile = np.tile(right, (coords_add.shape[1],1)).T
         right_coords = right_tile + coords_add
         unrav_coords = np.unravel_index(right_coords, (N, N))
-        avg_x, avg_y = np.sum(delta_x[unrav_coords], axis = 1)/k**2, np.sum(delta_y[unrav_coords], axis = 1)/k**2
+        avg_x, avg_y = np.sum(dx_phase[unrav_coords], axis = 1)/k**2, np.sum(dy_phase[unrav_coords], axis = 1)/k**2
         avg_x_tile, avg_y_tile = np.tile(avg_x, (right_coords.shape[1], 1)).T, np.tile(avg_y, (right_coords.shape[1], 1)).T
-        sum_x, sum_y = np.sum(np.square(delta_x[unrav_coords] - avg_x_tile), axis = 1), np.sum(np.square(delta_y[unrav_coords] - avg_y_tile), axis = 1)
+        sum_x, sum_y = np.sum(np.square(dx_phase[unrav_coords] - avg_x_tile), axis = 1), np.sum(np.square(dy_phase[unrav_coords] - avg_y_tile), axis = 1)
         zmn[np.unravel_index(right, (N, N))] = (np.sqrt(sum_x) + np.sqrt(sum_y)) / (k**2)
 ##        
 ##        ## calculate boundaries diagonals

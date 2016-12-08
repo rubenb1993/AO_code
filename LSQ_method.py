@@ -160,10 +160,55 @@ def pol2cart(rho, phi):
 ##fig = plt.figure()
 ##plt.imshow(dist_image, cmap = 'bone')
 ##plt.show()
-def LSQ_coeff(x_pos_zero, y_pos_zero, G, zero_image, sh, px_size, r_sh_px, f, j_max):   
-    ##### Make list of maxima given "flat" wavefront ####
-    #x_pos_zero, y_pos_zero = Hm.zero_positions(zero_image) #initial guess of positions
 
+#### old version
+##def LSQ_coeff(x_pos_zero, y_pos_zero, G, zero_image, sh, px_size, r_sh_px, f, j_max):   
+##    ##### Make list of maxima given "flat" wavefront ####
+##    #x_pos_zero, y_pos_zero = Hm.zero_positions(zero_image) #initial guess of positions
+##
+##    ## Given paramters for centroid gathering
+##    r_sh_m = px_size * r_sh_px
+##    [ny,nx] = zero_image.shape
+##    x = np.linspace(1, nx, nx)
+##    y = np.linspace(1, ny, ny)
+##    xx, yy = np.meshgrid(x, y)
+##
+##    #### Gather 'real' centroid positions
+##    #zero_image = np.asarray(PIL.Image.open(impath_zero)).astype(float) #reload image due to image corruption
+##    x_pos_flat, y_pos_flat = Hm.centroid_positions(x_pos_zero, y_pos_zero, zero_image, xx, yy)
+##
+##    #zero_image = np.asarray(PIL.Image.open(impath_zero)).astype(float) #reload image due to image corruption
+##    centre= Hm.centroid_centre(x_pos_flat, y_pos_flat)
+##    
+##    ### Normalize x, y
+##    x_pos_norm = ((x_pos_flat - centre[0]))/r_sh_px
+##    y_pos_norm = ((y_pos_flat - centre[1]))/r_sh_px
+##
+##    ##### Plot to see that really r is between 0 and 1
+##    ##plt.hist([x_pos_norm**2 + y_pos_norm**2])
+##    ##plt.show()
+##    ##plt.scatter(x_pos_norm, y_pos_norm)
+##    ##plt.show()
+##
+##    # Gather centroids and slope
+##    sh.snapImage()
+##    dist_image = sh.getImage().astype(float)
+##    x_pos_dist, y_pos_dist = Hm.centroid_positions(x_pos_flat, y_pos_flat, dist_image, xx, yy)
+##    #G = geometry_matrix_2(x_pos_norm, y_pos_norm, j_max, r_sh_px)
+##    ##zi = griddata((x_pos_norm, y_pos_norm), G[:len(x_pos_norm),2], (xi, yi), method='linear')
+##    ##plt.imshow(zi, vmin=G[:len(x_pos_norm),2].min(), vmax=G[:len(x_pos_norm),2].max(), origin='lower',
+##    ##           extent=[x_pos_norm.min(), x_pos_norm.max(), y_pos_norm.min(), y_pos_norm.max()])
+##    ##plt.colorbar()
+##    ##plt.show()
+##
+##    s = np.hstack(Hm.centroid2slope(x_pos_dist, y_pos_dist, x_pos_flat, y_pos_flat, px_size, f, r_sh_m))
+##    #a = np.linalg.lstsq(G, s)[0]
+##    #G_inv = np.linalg.pinv(G)
+##    #a = np.dot(G_inv, s)
+##    a = np.linalg.lstsq(G, s)[0]
+##    return a
+
+def LSQ_coeff(x_pos_zero, y_pos_zero, G, zero_image, dist_image, px_size, r_sh_px, f, j_max):   
     ## Given paramters for centroid gathering
     r_sh_m = px_size * r_sh_px
     [ny,nx] = zero_image.shape
@@ -172,37 +217,16 @@ def LSQ_coeff(x_pos_zero, y_pos_zero, G, zero_image, sh, px_size, r_sh_px, f, j_
     xx, yy = np.meshgrid(x, y)
 
     #### Gather 'real' centroid positions
-    #zero_image = np.asarray(PIL.Image.open(impath_zero)).astype(float) #reload image due to image corruption
     x_pos_flat, y_pos_flat = Hm.centroid_positions(x_pos_zero, y_pos_zero, zero_image, xx, yy)
-
-    #zero_image = np.asarray(PIL.Image.open(impath_zero)).astype(float) #reload image due to image corruption
     centre= Hm.centroid_centre(x_pos_flat, y_pos_flat)
     
     ### Normalize x, y
     x_pos_norm = ((x_pos_flat - centre[0]))/r_sh_px
     y_pos_norm = ((y_pos_flat - centre[1]))/r_sh_px
 
-    ##### Plot to see that really r is between 0 and 1
-    ##plt.hist([x_pos_norm**2 + y_pos_norm**2])
-    ##plt.show()
-    ##plt.scatter(x_pos_norm, y_pos_norm)
-    ##plt.show()
-
     # Gather centroids and slope
-    sh.snapImage()
-    dist_image = sh.getImage().astype(float)
     x_pos_dist, y_pos_dist = Hm.centroid_positions(x_pos_flat, y_pos_flat, dist_image, xx, yy)
-    #G = geometry_matrix_2(x_pos_norm, y_pos_norm, j_max, r_sh_px)
-    ##zi = griddata((x_pos_norm, y_pos_norm), G[:len(x_pos_norm),2], (xi, yi), method='linear')
-    ##plt.imshow(zi, vmin=G[:len(x_pos_norm),2].min(), vmax=G[:len(x_pos_norm),2].max(), origin='lower',
-    ##           extent=[x_pos_norm.min(), x_pos_norm.max(), y_pos_norm.min(), y_pos_norm.max()])
-    ##plt.colorbar()
-    ##plt.show()
-
     s = np.hstack(Hm.centroid2slope(x_pos_dist, y_pos_dist, x_pos_flat, y_pos_flat, px_size, f, r_sh_m))
-    #a = np.linalg.lstsq(G, s)[0]
-    #G_inv = np.linalg.pinv(G)
-    #a = np.dot(G_inv, s)
     a = np.linalg.lstsq(G, s)[0]
     return a
 ##plot_zernike(j_max, a)
