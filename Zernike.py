@@ -270,7 +270,7 @@ def complex_zernike(j_max, x, y):
 
 
 
-def plot_zernike(j_max, a, ax= None, wavelength = 632.8e-9, savefigure = False, title = 'zernike_plot'):
+def plot_zernike(j_max, a, ax= None, wavelength = 632.8e-9, cmap = cm.jet, savefigure = False, title = 'zernike_plot', **kwargs):
 ### plot zernikes according to coefficients
     if ax is None:
         ax = plt.gca()
@@ -285,11 +285,15 @@ def plot_zernike(j_max, a, ax= None, wavelength = 632.8e-9, savefigure = False, 
     Z = np.sum(a * Z_mat, axis=2)
     #for jj in range(j_max):
     #    Z += a[jj] * Zernike_xy(xi, yi, power_mat, jj+2)
-
     Z /= wavelength
     Zn = np.ma.masked_where(xi**2 + yi**2 >=1, Z)
+    if 'v' in kwargs:
+        levels = kwargs['v']
+    else:
+        levels = np.linspace(np.min(Zn), np.max(Zn))
+
     #fig = plt.figure(figsize = plt.figaspect(1.))
-    plotje = ax.contourf(xn, yn, Zn, rstride=1, cstride=1, cmap=cm.gray, linewidth = 0)
+    plotje = ax.contourf(xn, yn, Zn, cmap = cmap, linewidth = 0, levels = levels)
     divider = make_axes_locatable(ax)
     cax = divider.append_axes("right", size="5%", pad=0.1)
     cbar = plt.colorbar(plotje, cax=cax)
@@ -297,7 +301,7 @@ def plot_zernike(j_max, a, ax= None, wavelength = 632.8e-9, savefigure = False, 
         plt.savefig(title + '.png', bbox_inches='tight')
     return plotje
 
-def plot_interferogram(j_max, a, ax = None, wantcbar = False, wavelength = 632.8e-9, savefigure = False, title = 'Interferogram according to a'):
+def plot_interferogram(j_max, a, ax = None, wantcbar = True, cmap = 'bone', wavelength = 632.8e-9, savefigure = False, title = 'Interferogram according to a', **kwargs):
     if ax is None:
         ax = plt.gca()
     xi, yi = np.linspace(-1, 1, 300), np.linspace(-1, 1, 300)
@@ -313,9 +317,14 @@ def plot_interferogram(j_max, a, ax = None, wantcbar = False, wavelength = 632.8
     Z /= wavelength
     #fig = plt.figure(figsize = plt.figaspect(1.))
     Zn = np.ma.masked_where(xi**2 + yi**2 >=1, Z)    
-    phase = np.abs( np.abs(Zn) - np.floor(np.abs(Zn)))* 2 * np.pi
+    phase = np.mod(Zn - np.pi, 2*np.pi) - np.pi
     Intens = np.cos(phase/2.0)**2
-    interferogram = ax.contourf(xn, yn, Intens, rstride = 1, cstride = 1, cmap=cm.bone, linewidth=0)
+    if 'v' in kwargs:
+        levels = kwargs['v']
+        interferogram = ax.contourf(xn, yn, Intens, levels= levels, rstride = 1, cstride = 1, cmap= cmap, linewidth=0)
+    else:
+        interferogram = ax.contourf(xn, yn, Intens,  rstride = 1, cstride = 1, cmap= cmap, linewidth=0)
+
     if wantcbar:
         divider = make_axes_locatable(ax)
         cax = divider.append_axes("right", size="5%", pad=0.1)
