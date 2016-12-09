@@ -6,7 +6,7 @@ if "C:\Program Files\Micro-Manager-1.4" not in sys.path:
 import MMCorePy
 import PIL.Image
 import numpy as np
-#from matplotlib import rc
+from matplotlib import rc
 import Hartmann as Hm
 import displacement_matrix as Dm
 import Zernike as Zn
@@ -49,7 +49,7 @@ int_im_size_13 = (0.33 * 4.98, 3.07)
 
 #### Set up cameras and mirror
 new_yn = raw_input("do you want to take new images? y/n")
-foler_name = "20161130_five_inter_test/"
+folder_name = "20161130_five_inter_test/"
 if new_yn == 'y':
     global mirror
     mirror = edac40.OKOMirror("169.254.158.203") # Enter real IP in here

@@ -270,8 +270,10 @@ def complex_zernike(j_max, x, y):
 
 
 
-def plot_zernike(j_max, a, wavelength = 632.8e-9, savefigure = False, title = 'zernike_plot'):
+def plot_zernike(j_max, a, ax= None, wavelength = 632.8e-9, savefigure = False, title = 'zernike_plot'):
 ### plot zernikes according to coefficients
+    if ax is None:
+        ax = plt.gca()
     xi, yi = np.linspace(-1, 1, 300), np.linspace(-1, 1, 300)
     xi, yi = np.meshgrid(xi, yi)
     xn = np.ma.masked_where(xi**2 + yi**2 >= 1, xi)
@@ -286,11 +288,11 @@ def plot_zernike(j_max, a, wavelength = 632.8e-9, savefigure = False, title = 'z
 
     Z /= wavelength
     Zn = np.ma.masked_where(xi**2 + yi**2 >=1, Z)
-    fig = plt.figure(figsize = plt.figaspect(1.))
-    plotje = plt.contourf(xn, yn, Zn, rstride=1, cstride=1, cmap=cm.gray, linewidth = 0)
-    cbar = plt.colorbar()
-    #plt.title("Defocus 10")
-    cbar.ax.set_ylabel('lambda')
+    #fig = plt.figure(figsize = plt.figaspect(1.))
+    plotje = ax.contourf(xn, yn, Zn, rstride=1, cstride=1, cmap=cm.gray, linewidth = 0)
+    divider = make_axes_locatable(ax)
+    cax = divider.append_axes("right", size="5%", pad=0.1)
+    cbar = plt.colorbar(plotje, cax=cax)
     if savefigure:
         plt.savefig(title + '.png', bbox_inches='tight')
     return plotje
@@ -313,7 +315,7 @@ def plot_interferogram(j_max, a, ax = None, wantcbar = False, wavelength = 632.8
     Zn = np.ma.masked_where(xi**2 + yi**2 >=1, Z)    
     phase = np.abs( np.abs(Zn) - np.floor(np.abs(Zn)))* 2 * np.pi
     Intens = np.cos(phase/2.0)**2
-    interferogram = ax.contourf(xn, yn, Intens, rstride = 1, cstride = 1, cmap=cm.gray, linewidth=0)
+    interferogram = ax.contourf(xn, yn, Intens, rstride = 1, cstride = 1, cmap=cm.bone, linewidth=0)
     if wantcbar:
         divider = make_axes_locatable(ax)
         cax = divider.append_axes("right", size="5%", pad=0.1)

@@ -33,31 +33,6 @@ rc('text', usetex=True)
 
 #from numba import jit
 
-
-### Set up ranges
-##def make_jit_arrays(img):
-##    width, height = img.shape
-##    diag_len = int(math.ceil(math.sqrt(width * width + height * height)))  # diagonal length of image
-##    rhos = np.linspace(-diag_len, diag_len, 2.0 * diag_len)  # x-axis for plot with hough transform
-##    thetas = np.linspace(0, np.pi, 360)
-##    cos_t = np.cos(thetas)
-##    sin_t = np.sin(thetas)
-##    num_thetas = len(thetas)
-##    Acc = np.zeros((2 * diag_len, num_thetas), dtype=np.uint64)
-##    y_id, x_id = np.nonzero(img)
-##    return cos_t, sin_t, x_id, y_id, diag_len, Acc, num_thetas, rhos, thetas
-##
-###@jit
-##def hough_jit(img, cos_t, sin_t, x_id, y_id, diag_len, Acc, num_thetas):
-##    # binning
-##    for i in range(len(x_id)):
-##        x = x_id[i]
-##        y = y_id[i]
-##        for j in range(num_thetas):
-##            rho = round(x * cos_t[j] + y * sin_t[j]) + diag_len
-##            Acc[rho, j] += 1
-##    return Acc
-
 def hough_numpy(img, x, y):
     width, height = img.shape
     diag_len = np.ceil(np.sqrt(width * width + height * height)).astype(int)  # diagonal length of image
@@ -205,13 +180,19 @@ def phase_extraction(constants, take_new_img = False, folder_name = "20161130_fi
 ##        image_ref_mirror = np.array(PIL.Image.open(folder_name + "image_ref_mirror.tif"))
 ##        zero_pos_dm = np.array(PIL.Image.open(folder_name + "zero_image.tif"))
 ##        dist_image = np.array(PIL.Image.open(folder_name + "zero_image.tif"))
+        image_ref_mirror = np.zeros(2)
+        zero_pos_dm = np.zeros(2)
+        dist_image = np.zeros(2)
+
+        
         image_i0 = np.array(PIL.Image.open(folder_name + "interferogram_0.tif"))
         image_i1 = np.array(PIL.Image.open(folder_name + "interferogram_1.tif"))
         image_i2 = np.array(PIL.Image.open(folder_name + "interferogram_2.tif"))
         image_i3 = np.array(PIL.Image.open(folder_name + "interferogram_3.tif"))
         image_i4 = np.array(PIL.Image.open(folder_name + "interferogram_4.tif"))
-        interferograms = np.dstack((image_i0, image_i1, image_i2, image_i3, image_i4))
 
+    sh_spots = np.dstack((image_ref_mirror, zero_pos_dm, dist_image))        
+    interferograms = np.dstack((image_i0, image_i1, image_i2, image_i3, image_i4))
     indices_id = np.arange(1, interferograms.shape[-1])
     id_shape = list(interferograms.shape[0:2])
     id_shape.append(interferograms.shape[-1] -1)
@@ -304,7 +285,7 @@ def phase_extraction(constants, take_new_img = False, folder_name = "20161130_fi
     for k in range(len(Un_sol[0])):
         org_phase[..., k] = np.arctan2(atany[..., k], atanx[..., k])
 
-    return org_phase, delta_i
+    return org_phase, delta_i, sh_spots, image_i0
 ##    
 ##newy_n = raw_input("Do you want to make new interferograms? y/n")
 ##if newy_n == "y":
