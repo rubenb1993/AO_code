@@ -57,7 +57,7 @@ def avg_complex_zernike(x_pos_norm, y_pos_norm, j_max, r_int_px, spot_size = 35)
     return Cnm_avg
 
 
-def coeff(x_pos_zero, y_pos_zero, zero_image, dist_image, px_size, f, r_sh_m, j_max,):
+def coeff(x_pos_zero, y_pos_zero, zero_image, dist_image, px_size, f, r_sh_m, j_max):
     ## Given paramters for centroid gathering
     
     [ny,nx] = zero_image.shape

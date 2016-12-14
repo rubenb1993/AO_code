@@ -19,6 +19,7 @@ import math
 import peakdetect
 import matplotlib.ticker as ticker
 import phase_unwrapping_test as pw
+import LSQ_method as LSQ
 import detect_peaks as dp
 import scipy.fftpack as fftp
 import itertools
@@ -57,10 +58,10 @@ def hough_numpy(img, x, y):
 
     return Acc, rhos, thetas, diag_len
 
-def max_finding(Acc, rhos, thetas, lookahead = 30, delta = 30):
+def max_finding(Acc, rhos, thetas, minheight = 0, lookahead = 30):
     idmax = np.argmax(Acc)
     rho_max_index, theta_max_index = np.unravel_index(idmax, Acc.shape)
-    peak_indices = dp.detect_peaks(Acc[:, theta_max_index], mph = 110, mpd = lookahead)
+    peak_indices = dp.detect_peaks(Acc[:, theta_max_index], mph = minheight, mpd = lookahead)
     s_max = np.max(rhos[peak_indices])
     theta_max = thetas[theta_max_index]
     return theta_max, s_max, theta_max_index, peak_indices
@@ -96,12 +97,12 @@ def weight_thicken(indices, weight_matrix, border = 10):
     weight_matrix[coords[0], coords[1] +1] = 0
     return weight_matrix
 
-def phase_extraction(constants, take_new_img = False, folder_name = "20161130_five_inter_test/"):
+def phase_extraction(constants, take_new_img = False, folder_name = "20161130_five_inter_test/", show_id_hat = False, show_hough_peaks = False):
     px_size_sh, px_size_int, f_sh, r_int_px, r_sh_px, r_sh_m, j_max, wavelength, box_len, x0, y0, radius = constants
     x0, y0, radius = int(x0), int(y0), int(radius)
     if take_new_img == True:
         global mirror
-        mirror = edac40.OKOMirror("169.254.69.72") # Enter real IP in here
+        mirror = edac40.OKOMirror("169.254.158.203") # Enter real IP in here
         sh, int_cam = mc.set_up_cameras()
 
         actuators = 19
@@ -123,12 +124,19 @@ def phase_extraction(constants, take_new_img = False, folder_name = "20161130_fi
         ### make flat wavefront
         u_dm, x_pos_norm_f, y_pos_norm_f, x_pos_zero_f, y_pos_zero_f, V2D = mc.flat_wavefront(u_dm, zero_pos_dm, image_ref_mirror, r_sh_px, r_int_px, sh, mirror, show_accepted_spots = True)
 
+        raw_input("remove paper for flat wavefront")
+        int_cam.snapImage()
+        flat_wf = int_cam.getImage().astype(float)
+        PIL.Image.fromarray(flat_wf).save(folder_name + "flat_wf.tif")
+
+        raw_input("black reference mirror again!")
+        
         G = LSQ.matrix_avg_gradient(x_pos_norm_f, y_pos_norm_f, j_max, r_sh_px)
         a = np.zeros(j_max)
 
-        ind = np.array([0])
+        ind = np.array([4])
         #a[ind] = 0.15 * wavelength
-        a[ind] = 3 * wavelength
+        a[ind] = 1.5 * wavelength
 
         u_dm_flat = u_dm
         #V2D_inv = np.linalg.pinv(V2D)
@@ -177,12 +185,13 @@ def phase_extraction(constants, take_new_img = False, folder_name = "20161130_fi
         PIL.Image.fromarray(image_i4).save(folder_name + "interferogram_4.tif")
 
     else:
-##        image_ref_mirror = np.array(PIL.Image.open(folder_name + "image_ref_mirror.tif"))
-##        zero_pos_dm = np.array(PIL.Image.open(folder_name + "zero_image.tif"))
-##        dist_image = np.array(PIL.Image.open(folder_name + "zero_image.tif"))
-        image_ref_mirror = np.zeros(2)
-        zero_pos_dm = np.zeros(2)
-        dist_image = np.zeros(2)
+        image_ref_mirror = np.array(PIL.Image.open(folder_name + "image_ref_mirror.tif"))
+        zero_pos_dm = np.array(PIL.Image.open(folder_name + "zero_pos_dm.tif"))
+        dist_image = np.array(PIL.Image.open(folder_name + "dist_image.tif"))
+        flat_wf = np.array(PIL.Image.open(folder_name + "flat_wf.tif"))
+##        image_ref_mirror = np.zeros(2)
+##        zero_pos_dm = np.zeros(2)
+##        dist_image = np.zeros(2)
 
         
         image_i0 = np.array(PIL.Image.open(folder_name + "interferogram_0.tif"))
@@ -240,14 +249,15 @@ def phase_extraction(constants, take_new_img = False, folder_name = "20161130_fi
     for jj in range(4):
         Acc[...,jj], rhos, thetas, diag_len = hough_numpy(Id_zeros_mask[..., jj], x, y)
         print("Hough transform " + str(jj+1) + " done!")
-        theta_max[jj], s_max[jj], theta_max_index, peak_indices = max_finding(Acc[...,jj], rhos, thetas)
+        theta_max[jj], s_max[jj], theta_max_index, peak_indices = max_finding(Acc[...,jj], rhos, thetas, minheight = 50, lookahead = 10)
         ## uncomment to check if peaks align with found peaks visually
-    ##    f2, axarr2 = plt.subplots(2,1)
-    ##    axarr2[0].imshow(Acc[...,jj].T, cmap = 'bone')
-    ##    axarr2[0].scatter(peak_indices, np.tile(theta_max_index, len(peak_indices)))
-    ##    axarr2[1].plot(rhos, Acc[:, theta_max_index, jj])
-    ##    dtct = axarr2[1].scatter(rhos[peak_indices], Acc[peak_indices, theta_max_index, jj], c = 'r')
-    ##    plt.show()
+        if show_hough_peaks == True:
+            f2, axarr2 = plt.subplots(2,1)
+            axarr2[0].imshow(Acc[...,jj].T, cmap = 'bone')
+            axarr2[0].scatter(peak_indices, np.tile(theta_max_index, len(peak_indices)))
+            axarr2[1].plot(rhos, Acc[:, theta_max_index, jj])
+            dtct = axarr2[1].scatter(rhos[peak_indices], Acc[peak_indices, theta_max_index, jj], c = 'r')
+            plt.show()
         Lambda[jj] = np.sum(np.diff(rhos[peak_indices]), dtype=float) / (len(peak_indices)-1.0)
 
     ## make tile lists to compute 3d matrices in a numpy way
@@ -265,6 +275,12 @@ def phase_extraction(constants, take_new_img = False, folder_name = "20161130_fi
     sin_diff = np.sin(delta_i)
     Id_hat = Id_int/(-2.0 * sin_diff)
 
+    if show_id_hat == True:
+        f, ax = plt.subplots(1,4)
+        for i in range(4):
+            ax[i].imshow(np.ma.array(Id_hat[..., i], mask = mask), vmin = -255, vmax = 255)
+        plt.show()
+    
     nmbr_inter = Id_zeros.shape[-1] #number of interferogram differences
     Un_sol = np.triu_indices(nmbr_inter, 1) #indices of unique phase retrievals. upper triangular indices, s.t. 12 and 21 dont get counted twice
     shape_unwrp = list(Id_zeros.shape[:2])
@@ -285,7 +301,7 @@ def phase_extraction(constants, take_new_img = False, folder_name = "20161130_fi
     for k in range(len(Un_sol[0])):
         org_phase[..., k] = np.arctan2(atany[..., k], atanx[..., k])
 
-    return org_phase, delta_i, sh_spots, image_i0
+    return org_phase, delta_i, sh_spots, image_i0, flat_wf
 ##    
 ##newy_n = raw_input("Do you want to make new interferograms? y/n")
 ##if newy_n == "y":

@@ -102,7 +102,7 @@ def xder_brug(x, y, power_mat, j):
     j the fringe order of your polynomial
     out: dZdx, a matrix containing the values of dZjdx at points x and y
     
-    Normalized s.t. int(|Z_j|^2) = pi/(n+1)"""
+    Normalized s.t. int(|Z_j|^2) = pi"""
     power_mat = power_mat[1:, :, :]
     dim1 = list(x.shape)
     dim1.append(len(j))
@@ -270,7 +270,7 @@ def complex_zernike(j_max, x, y):
 
 
 
-def plot_zernike(j_max, a, ax= None, wavelength = 632.8e-9, cmap = cm.jet, savefigure = False, title = 'zernike_plot', **kwargs):
+def plot_zernike(j_max, a, ax= None, wavelength = 632.8e-9, cmap = cm.jet, savefigure = False, title = 'zernike_plot', fliplr = False,**kwargs):
 ### plot zernikes according to coefficients
     if ax is None:
         ax = plt.gca()
@@ -291,6 +291,8 @@ def plot_zernike(j_max, a, ax= None, wavelength = 632.8e-9, cmap = cm.jet, savef
         levels = kwargs['v']
     else:
         levels = np.linspace(np.min(Zn), np.max(Zn))
+    if fliplr:
+        Zn = np.fliplr(Zn)
 
     #fig = plt.figure(figsize = plt.figaspect(1.))
     plotje = ax.contourf(xn, yn, Zn, cmap = cmap, linewidth = 0, levels = levels)
@@ -301,7 +303,7 @@ def plot_zernike(j_max, a, ax= None, wavelength = 632.8e-9, cmap = cm.jet, savef
         plt.savefig(title + '.png', bbox_inches='tight')
     return plotje
 
-def plot_interferogram(j_max, a, ax = None, wantcbar = True, cmap = 'bone', wavelength = 632.8e-9, savefigure = False, title = 'Interferogram according to a', **kwargs):
+def plot_interferogram(j_max, a, piston = 0, ax = None, wantcbar = True, cmap = 'bone', wavelength = 632.8e-9, fliplr = False, savefigure = False, title = 'Interferogram according to a', **kwargs):
     if ax is None:
         ax = plt.gca()
     xi, yi = np.linspace(-1, 1, 300), np.linspace(-1, 1, 300)
@@ -315,9 +317,16 @@ def plot_interferogram(j_max, a, ax = None, wantcbar = True, cmap = 'bone', wave
     Z = np.sum(a * Z_mat, axis = 2)
 
     Z /= wavelength
+    #Z += piston
     #fig = plt.figure(figsize = plt.figaspect(1.))
-    Zn = np.ma.masked_where(xi**2 + yi**2 >=1, Z)    
-    phase = np.mod(Zn - np.pi, 2*np.pi) - np.pi
+    Zn = np.ma.masked_where(xi**2 + yi**2 >=1, Z)
+    Zn = Zn + piston
+    if fliplr:
+        Zn = np.fliplr(Zn)
+    if 'want_phi_old' in kwargs:
+        phase = np.abs(np.abs(Zn) - np.floor(np.abs(Zn))) * 2 * np.pi
+    else:
+        phase = np.mod(Zn - np.pi, 2*np.pi) - np.pi
     Intens = np.cos(phase/2.0)**2
     if 'v' in kwargs:
         levels = kwargs['v']
@@ -325,9 +334,18 @@ def plot_interferogram(j_max, a, ax = None, wantcbar = True, cmap = 'bone', wave
     else:
         interferogram = ax.contourf(xn, yn, Intens,  rstride = 1, cstride = 1, cmap= cmap, linewidth=0)
 
+        
     if wantcbar:
         divider = make_axes_locatable(ax)
         cax = divider.append_axes("right", size="5%", pad=0.1)
         cbar = plt.colorbar(interferogram, cax=cax)
     return interferogram
-    #plt.show()
+
+def int_for_comp(j_max, a, N, piston, Z_mat, wavelength = 632.8e-9,):
+    Z = np.zeros(list(Z_mat.shape)[0:2])
+    Z = np.sum(a * Z_mat, axis = 2)
+    Z /= wavelength
+    Z += piston  
+    phase = np.mod(Z - np.pi, 2*np.pi) - np.pi
+    Intens = np.cos(phase/2.0)**2
+    return Intens

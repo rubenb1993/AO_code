@@ -49,7 +49,7 @@ int_im_size_13 = (0.33 * 4.98, 3.07)
 
 #### Set up cameras and mirror
 new_yn = raw_input("do you want to take new images? y/n")
-folder_name = "20161130_five_inter_test/"
+folder_name = "20161213_new_inters/"
 if new_yn == 'y':
     global mirror
     mirror = edac40.OKOMirror("169.254.158.203") # Enter real IP in here
@@ -87,7 +87,7 @@ if new_yn == 'y':
 
     ind = np.array([0])
     #a[ind] = 0.15 * wavelength
-    a[ind] = 3 * wavelength
+    a[2] = 3 * wavelength
 
     u_dm_flat = u_dm
     #V2D_inv = np.linalg.pinv(V2D)
@@ -135,17 +135,44 @@ if new_yn == 'y':
     image_i4 = int_cam.getImage().astype(float)
     PIL.Image.fromarray(image_i4).save(folder_name + "interferogram_4.tif")
 else:
-    zero_image = np.array(PIL.Image.open(folder_name + "zero_image.tif"))
-    dist_image = np.array(PIL.Image.open(folder_name + "zero_image.tif"))
+    zero_image = np.array(PIL.Image.open(folder_name + "zero_pos_dm.tif"))
+    zero_image_zeros = np.copy(zero_image)
+    dist_image = np.array(PIL.Image.open(folder_name + "dist_image.tif"))
+    image_ref_mirror = np.array(PIL.Image.open(folder_name + "image_ref_mirror.tif"))
     image_i0 = np.array(PIL.Image.open(folder_name + "interferogram_0.tif"))
     image_i1 = np.array(PIL.Image.open(folder_name + "interferogram_1.tif"))
     image_i2 = np.array(PIL.Image.open(folder_name + "interferogram_2.tif"))
     image_i3 = np.array(PIL.Image.open(folder_name + "interferogram_3.tif"))
     image_i4 = np.array(PIL.Image.open(folder_name + "interferogram_4.tif"))
 
+## Given paramters for centroid gathering
+px_size_sh = 5.2e-6     # width of pixels
+px_size_int = 5.2e-6
+f_sh = 17.6e-3            # focal length
+r_int_px = 340
+r_sh_px = 340 
+r_sh_m = r_sh_px * px_size_int 
+j_max= 30         # maximum fringe order
+wavelength = 632e-9 #[m]
+box_len = 35.0 #half width of subaperture box in px
+
+### things we need
+[ny,nx] = zero_image.shape
+x = np.linspace(1, nx, nx)
+y = np.linspace(1, ny, ny)
+xx, yy = np.meshgrid(x, y)
+
+x_pos_zero, y_pos_zero = Hm.zero_positions(zero_image_zeros)
+x_pos_flat, y_pos_flat = Hm.centroid_positions(x_pos_zero, y_pos_zero, image_ref_mirror, xx, yy)
+centre = Hm.centroid_centre(x_pos_flat, y_pos_flat)
+x_pos_norm = ((x_pos_flat - centre[0]))/r_sh_px
+y_pos_norm = ((y_pos_flat - centre[1]))/r_sh_px
+inside = np.where(np.sqrt(x_pos_norm**2 + y_pos_norm**2) <= (1 + (box_len/r_sh_px))) #35 is the half the width of the pixel box aroudn a centroid and r_sh_px is the scaling factor
+x_pos_zero_f, y_pos_zero_f, x_pos_flat_f, y_pos_flat_f, x_pos_norm_f, y_pos_norm_f = mc.filter_positions(inside, x_pos_zero, y_pos_zero, x_pos_flat, y_pos_flat, x_pos_norm, y_pos_norm)
+G = LSQ.matrix_avg_gradient(x_pos_norm_f, y_pos_norm_f, j_max, r_sh_px)
 
 ## Shack Hartmann methods
-a_measured_new = LSQ.LSQ_coeff(x_pos_zero_f, y_pos_zero_f, G, image_ref_mirror, dist_image, px_size_sh, r_sh_px, f_sh, j_max)
+a_measured_new = LSQ.LSQ_coeff(x_pos_zero_f, y_pos_zero_f, x_pos_flat_f, y_pos_flat_f, G, image_ref_mirror, dist_image, px_size_sh, r_sh_px, f_sh, j_max) 
 a_janss_check = janssen.coeff(x_pos_zero_f, y_pos_zero_f, image_ref_mirror, dist_image, px_size_sh, f_sh, r_sh_m, j_max)
 
 
@@ -153,20 +180,21 @@ a_janss_check = janssen.coeff(x_pos_zero_f, y_pos_zero_f, image_ref_mirror, dist
 ## centre and radius of interferogam. Done by eye, with the help of define_radius.py
 x0 = 550
 y0 = 484
-radius = 340
+radius = 375
     
 circle1 = plt.Circle((375,375), 375, color = 'white', fill=False, linewidth = 2)
 f, axarr = plt.subplots(2, 3, figsize=(9.31,5.91))
 axarr[0,0].set_title('flat wavefront', fontsize = 9)
-axarr[0,0].imshow(flat_wf[164:914, 363:1113], cmap = 'bone')
+#axarr[0,0].imshow(flat_wf[164:914, 363:1113], cmap = 'bone')
+Zn.plot_interferogram(j_max, a_measured_new, ax = axarr[0,0], want_phi_old = True)
 axarr[0,1].set_title('interferogram of wanted abberation', fontsize = 9)
-Zn.plot_interferogram(j_max, a, axarr[0,1])
-axarr[1, 0].imshow(interferogram[164:914, 363:1113], cmap = 'bone')
+#Zn.plot_interferogram(j_max, a, axarr[0,1])
+axarr[1, 0].imshow(image_i0[y0-radius:y0+radius, x0-radius:x0+radius], cmap = 'bone')
 axarr[1, 0].add_artist(circle1)
 axarr[1, 0].set_title('measured interferogram', fontsize = 9)
-Zn.plot_interferogram(j_max, a_measured_new, axarr[1,1])
+Zn.plot_interferogram(j_max, a_measured_new, ax = axarr[1,1])
 axarr[1, 1].set_title('interferogram simulated from LSQ', fontsize = 9)
-Zn.plot_interferogram(j_max, np.real(a_janss_check), axarr[1,2])
+Zn.plot_interferogram(j_max, np.real(a_janss_check), ax = axarr[1,2])
 axarr[1,2].set_title('interferogram simulated from Janssen', fontsize = 9)
 
 ax = axarr.reshape(-1)
@@ -179,7 +207,7 @@ for i in range(len(ax)):
 
 
 indexs = np.arange(2, j_max+2, 1)
-axarr[0,2].plot(indexs, a/wavelength, 'ro', label = 'intended')
+#axarr[0,2].plot(indexs, a/wavelength, 'ro', label = 'intended')
 axarr[0,2].plot(indexs, a_measured_new/(wavelength), 'bo', label = 'LSQ solution')
 #ax.plot(indexs, np.real(a_janss_check)/(wavelength), 'go', label = 'measured_janss_check')
 axarr[0,2].plot(indexs, np.real(a_janss_check)/wavelength, 'ko', label = 'Janssen solution')
@@ -189,7 +217,7 @@ axarr[0,2].set_xlabel('Coeffcient', fontsize = 7, labelpad = -0.75)
 axarr[0,2].set_ylabel('a [\lambda]', fontsize = 7, labelpad = -2)
 axarr[0,2].set_title('measured coefficients', fontsize = 9)
 #axarr[0,2].tick_params(axis='both', pad=-1)
-plt.savefig('try_2_single_aberrations_j_' + vec2str(ind+2) +'.png', bbox_inches='tight')
+#lt.savefig('try_2_single_aberrations_j_' + vec2str(ind+2) +'.png', bbox_inches='tight')
 
 plt.show()
 

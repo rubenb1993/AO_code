@@ -54,7 +54,7 @@ def geometry_matrix(x, y, j_max, r_sh_px, spot_size = 35):
     B_brug[len(x):, :] = (B_brug_top + B_brug_bot) / 2.0
     return B_brug
 
-def geometry_matrix_2(x, y, j_max, r_sh_px, spot_size = 35):
+def geometry_matrix_2(x, y, j_max, r_sh_px, spot_size = 35.0):
     "using semi-gauss"
     power_mat = Zn.Zernike_power_mat(j_max+2)
     displacement = spot_size / r_sh_px
@@ -208,7 +208,7 @@ def pol2cart(rho, phi):
 ##    a = np.linalg.lstsq(G, s)[0]
 ##    return a
 
-def LSQ_coeff(x_pos_zero, y_pos_zero, G, zero_image, dist_image, px_size, r_sh_px, f, j_max):   
+def LSQ_coeff(x_pos_zero, y_pos_zero, x_pos_flat, y_pos_flat, G, zero_image, dist_image, px_size, r_sh_px, f, j_max):   
     ## Given paramters for centroid gathering
     r_sh_m = px_size * r_sh_px
     [ny,nx] = zero_image.shape
