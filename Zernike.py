@@ -316,7 +316,7 @@ def plot_interferogram(j_max, a, piston = 0, ax = None, wantcbar = True, cmap = 
     Z_mat = Zernike_xy(xi, yi, power_mat, j_range)
     Z = np.sum(a * Z_mat, axis = 2)
 
-    Z /= wavelength
+    #Z /= wavelength
     #Z += piston
     #fig = plt.figure(figsize = plt.figaspect(1.))
     Zn = np.ma.masked_where(xi**2 + yi**2 >=1, Z)
@@ -344,7 +344,7 @@ def plot_interferogram(j_max, a, piston = 0, ax = None, wantcbar = True, cmap = 
 def int_for_comp(j_max, a, N, piston, Z_mat, wavelength = 632.8e-9,):
     Z = np.zeros(list(Z_mat.shape)[0:2])
     Z = np.sum(a * Z_mat, axis = 2)
-    Z /= wavelength
+    #Z /= wavelength
     Z += piston  
     phase = np.mod(Z - np.pi, 2*np.pi) - np.pi
     Intens = np.cos(phase/2.0)**2

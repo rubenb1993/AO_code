@@ -208,7 +208,7 @@ def pol2cart(rho, phi):
 ##    a = np.linalg.lstsq(G, s)[0]
 ##    return a
 
-def LSQ_coeff(x_pos_zero, y_pos_zero, x_pos_flat, y_pos_flat, G, zero_image, dist_image, px_size, r_sh_px, f, j_max):   
+def LSQ_coeff(x_pos_zero, y_pos_zero, x_pos_flat, y_pos_flat, G, zero_image, dist_image, px_size, r_sh_px, f, j_max, wavelength):   
     ## Given paramters for centroid gathering
     r_sh_m = px_size * r_sh_px
     [ny,nx] = zero_image.shape
@@ -226,7 +226,7 @@ def LSQ_coeff(x_pos_zero, y_pos_zero, x_pos_flat, y_pos_flat, G, zero_image, dis
 
     # Gather centroids and slope
     x_pos_dist, y_pos_dist = Hm.centroid_positions(x_pos_flat, y_pos_flat, dist_image, xx, yy)
-    s = np.hstack(Hm.centroid2slope(x_pos_dist, y_pos_dist, x_pos_flat, y_pos_flat, px_size, f, r_sh_m))
+    s = np.hstack(Hm.centroid2slope(x_pos_dist, y_pos_dist, x_pos_flat, y_pos_flat, px_size, f, r_sh_m, wavelength))
     a = np.linalg.lstsq(G, s)[0]
     return a
 ##plot_zernike(j_max, a)

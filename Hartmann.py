@@ -39,12 +39,12 @@ def centroid_positions(x_pos_flat, y_pos_flat, image, xx, yy, spot_size = 35):
     
 #### Centroid positions to slope on unit circle ####
 
-def centroid2slope(x_pos_dist, y_pos_dist, x_pos_flat, y_pos_flat, px_size, f, r_sh):
+def centroid2slope(x_pos_dist, y_pos_dist, x_pos_flat, y_pos_flat, px_size, f, r_sh, wl):
     "Given the positions of the disturbed wf and the flat wf, calculate the slope of the wf on unit disc"
     dx = (x_pos_dist - x_pos_flat) * px_size #displacement in px to m
     dy = (y_pos_dist - y_pos_flat) * px_size
-    slope_x = r_sh * (dx/f) #approximate wf slope as linearization and scale to unit disc by multiplying with r_sh
-    slope_y = r_sh * (dy/f)
+    slope_x = 2*np.pi/wl * r_sh * (dx/f) #approximate wf slope as linearization and scale to unit disc by multiplying with r_sh
+    slope_y = 2*np.pi/wl * r_sh * (dy/f)
     return slope_x, slope_y
 
 #### Centroids centre and radius SH pattern

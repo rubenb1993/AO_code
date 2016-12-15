@@ -161,7 +161,7 @@ if filt_yn == 'y':
         fit_phase = save_phase[..., i]
         
         a_filt[:, i] = np.linalg.lstsq(Zernike_2d, fit_phase[xy_inside])[0]
-        a_filt[:, i] *= wavelength
+        #a_filt[:, i] *= wavelength
     np.save(fold_name + "coefficients", a_filt)
     np.save(fold_name + "filtered_phases", save_phase)
 else:
@@ -237,8 +237,8 @@ inside = np.where(np.sqrt(x_pos_norm**2 + y_pos_norm**2) <= (1 + (box_len/r_sh_p
 x_pos_zero_f, y_pos_zero_f, x_pos_flat_f, y_pos_flat_f, x_pos_norm_f, y_pos_norm_f = mc.filter_positions(inside, x_pos_zero, y_pos_zero, x_pos_flat, y_pos_flat, x_pos_norm, y_pos_norm)
 G = LSQ.matrix_avg_gradient(x_pos_norm_f, y_pos_norm_f, j_max, r_sh_px)
 
-a_lsq = LSQ.LSQ_coeff(x_pos_zero_f, y_pos_zero_f, x_pos_flat_f, y_pos_flat_f, G, image_control, dist_image, px_size_sh, r_sh_px, f_sh, j_max) 
-a_janss = janssen.coeff(x_pos_zero_f, y_pos_zero_f, image_control, dist_image, px_size_sh, f_sh, r_sh_m, j_max)
+a_lsq = LSQ.LSQ_coeff(x_pos_zero_f, y_pos_zero_f, x_pos_flat_f, y_pos_flat_f, G, image_control, dist_image, px_size_sh, r_sh_px, f_sh, j_max, wavelength) 
+a_janss = janssen.coeff(x_pos_zero_f, y_pos_zero_f, image_control, dist_image, px_size_sh, f_sh, r_sh_m, j_max, wavelength)
 a_janss = np.real(a_janss)
 
 pist_lsq = opt.fmin(rms_piston, 0, args = (j_max, a_lsq, N, Z_mat, orig, mask))
