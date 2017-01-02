@@ -46,7 +46,7 @@ j_max= 30         # maximum fringe order
 wavelength = 632e-9 #[m]
 box_len = 35.0 #half width of subaperture box in px
 
-## image making parameters
+## plot making parameters
 dpi_num = 600
 int_im_size = (4.98, 3.07)
 int_im_size_23 = (0.66 * 4.98, 3.07)

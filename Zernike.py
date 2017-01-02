@@ -303,7 +303,7 @@ def plot_zernike(j_max, a, ax= None, wavelength = 632.8e-9, cmap = cm.jet, savef
         plt.savefig(title + '.png', bbox_inches='tight')
     return plotje
 
-def plot_interferogram(j_max, a, piston = 0, ax = None, wantcbar = True, cmap = 'bone', wavelength = 632.8e-9, fliplr = False, savefigure = False, title = 'Interferogram according to a', **kwargs):
+def plot_interferogram(j_max, a, piston = 0, ax = None, f = None, wantcbar = False, cmap = 'bone', wavelength = 632.8e-9, fliplr = False, savefigure = False, title = 'Interferogram according to a', **kwargs):
     if ax is None:
         ax = plt.gca()
     xi, yi = np.linspace(-1, 1, 300), np.linspace(-1, 1, 300)
