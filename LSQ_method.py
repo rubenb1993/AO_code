@@ -73,10 +73,10 @@ def geometry_matrix_2(x, y, j_max, r_sh_px, spot_size = 35.0):
     G[len(x):, :] = (G_top - G_bot) / h
     return G
 
-def matrix_avg_gradient(x_pos_norm, y_pos_norm , j_max, r_int_px, spot_size = 35):
+def matrix_avg_gradient(x_pos_norm, y_pos_norm , j_max, r_int_px, power_mat, spot_size = 35):
     """Compute the average gradient in each sub_aperture based, using the fact that the average distance between spots is 70 px.
     For each point (x,y) normalised, the alogirthm creates a box around it, """
-    power_mat = Zn.Zernike_power_mat(j_max+2)
+    #power_mat = Zn.Zernike_power_mat(j_max+2)
     half_len_box = spot_size/r_int_px
     box_px = 2*spot_size
     x_left = x_pos_norm - half_len_box

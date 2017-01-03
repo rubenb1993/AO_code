@@ -27,10 +27,10 @@ def centroid_positions(x_pos_flat, y_pos_flat, image, xx, yy, spot_size = 35):
     centroids = np.zeros(shape = (len(x_pos_flat),2))
     image[image<6] = 0 #remove noisy pixels
     for i in range(len(x_pos_flat)):
-        y_low = y_pos_flat[i] - spot_size
-        y_high = y_pos_flat[i] + spot_size
-        x_low = x_pos_flat[i] - spot_size
-        x_high = x_pos_flat[i] + spot_size
+        y_low = int(y_pos_flat[i]) - spot_size
+        y_high = int(y_pos_flat[i]) + spot_size
+        x_low = int(x_pos_flat[i]) - spot_size
+        x_high = int(x_pos_flat[i]) + spot_size
         #Find centroids weighing them with intensity and position
         norm_photons = 1/np.sum(image[y_low: y_high, x_low: x_high])
         centroids[i,0] = norm_photons * np.sum(image[y_low: y_high, x_low: x_high] * xx[y_low: y_high, x_low: x_high])

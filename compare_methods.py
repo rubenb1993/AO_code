@@ -21,14 +21,15 @@ import scipy.optimize as opt
 def rms_piston(piston, *args):
     """function for rms value to be minimized. args should contain j_max, a_filt, N, Z_mat, orig, mask in that order"""
     if args:
-        j_max, a_filt, N, Z_mat, orig, mask = args
+        j_max, a_filt, N, Z_mat, orig, mask, fliplr = args
     else:
         print("you should include the right arguments!")
         return
     orig = np.ma.array(orig, mask = mask)
-    inter = np.ma.array(Zn.int_for_comp(j_max, a_filt, N, piston, Z_mat), mask = mask)
+    inter = np.ma.array(Zn.int_for_comp(j_max, a_filt, N, piston, Z_mat, fliplr), mask = mask)
     rms = np.sqrt(np.sum((inter - orig)**2)/N**2)
     return rms
+
 
 
 # Define font for figures
@@ -209,14 +210,16 @@ mins = np.zeros(a_filt.shape[-1])
 f, ax = plt.subplots(2, 5)
 f2, ax2 = plt.subplots(1,1)
 indexes = np.unravel_index(np.arange(10), (2, 5))
+
+flipint = False
 print("optimizinggg")
 for i in range(len(mins)):
-    mins[i] = opt.fmin(rms_piston, 0, args = (j_max, a_filt[:,i], N, Z_mat, orig, mask))
+    mins[i] = opt.fmin(rms_piston, 0, args = (j_max, a_filt[:,i], N, Z_mat, orig, mask, flipint))
     ax[indexes[0][i], indexes[1][i]].imshow(orig - np.ma.array(Zn.int_for_comp(j_max, a_filt[:,i], N, mins[i], Z_mat), mask = mask), vmin = -1, vmax = 0.25, origin = 'lower')
 
 rms_vec = np.zeros(len(mins))
 for i in range(len(mins)):
-    rms_vec[i] = rms_piston(mins[i], j_max, a_filt[:,i], N, Z_mat, orig, mask)
+    rms_vec[i] = rms_piston(mins[i], j_max, a_filt[:,i], N, Z_mat, orig, mask, flipint)
 
 ### Gather with SH patterns
 zero_image = sh_spots[..., 1]
@@ -235,26 +238,165 @@ x_pos_norm = ((x_pos_flat - centre[0]))/r_sh_px
 y_pos_norm = ((y_pos_flat - centre[1]))/r_sh_px
 inside = np.where(np.sqrt(x_pos_norm**2 + y_pos_norm**2) <= (1 + (box_len/r_sh_px))) #35 is the half the width of the pixel box aroudn a centroid and r_sh_px is the scaling factor
 x_pos_zero_f, y_pos_zero_f, x_pos_flat_f, y_pos_flat_f, x_pos_norm_f, y_pos_norm_f = mc.filter_positions(inside, x_pos_zero, y_pos_zero, x_pos_flat, y_pos_flat, x_pos_norm, y_pos_norm)
-G = LSQ.matrix_avg_gradient(x_pos_norm_f, y_pos_norm_f, j_max, r_sh_px)
+G = LSQ.matrix_avg_gradient(x_pos_norm_f, y_pos_norm_f, j_max, r_sh_px, power_mat)
 
-a_lsq = LSQ.LSQ_coeff(x_pos_zero_f, y_pos_zero_f, x_pos_flat_f, y_pos_flat_f, G, image_control, dist_image, px_size_sh, r_sh_px, f_sh, j_max, wavelength) 
-a_janss = janssen.coeff(x_pos_zero_f, y_pos_zero_f, image_control, dist_image, px_size_sh, f_sh, r_sh_m, j_max, wavelength)
-a_janss = np.real(a_janss)
+lsq_args = (wavelength, j_max, f_sh, px_size_sh, dist_image, image_control, y_pos_flat_f, x_pos_flat_f, y_pos_zero_f, x_pos_zero_f, xx, yy, orig, mask, N, Z_mat, power_mat)
+janss_args = (x_pos_zero_f, y_pos_zero_f, image_control, dist_image, px_size_sh, f_sh, j_max, wavelength, xx, yy, N, orig, mask, Z_mat)
 
-pist_lsq = opt.fmin(rms_piston, 0, args = (j_max, a_lsq, N, Z_mat, orig, mask))
-pist_janss = opt.fmin(rms_piston, 0, args = (j_max, np.real(a_janss), N, Z_mat, orig, mask))
+def rms_lsq(variables, *args):
+    """calculate the rms value of the LSQ method with variables:
+    variables[0] = piston,
+    variables[1] = centre_x,
+    variables[2] = centre_y,
+    variables[3] = radius of circle on sh sensor[px],
+    Z_mat is used to calculate the Zernike polynomial on a grid, to compare with original interferogram.
+    arguments should be in order"""
+    if args:
+       wavelength, j_max, f_sh, px_size_sh, dist_image, image_control, y_pos_flat_f, x_pos_flat_f, y_pos_zero_f, x_pos_zero_f, xx, yy, orig, mask, N, Z_mat, power_mat = args
+    else:
+        print("put the arguments!")
+        return
+    r_sh_m = px_size_sh * variables[3]
+
+    x_pos_norm = (x_pos_flat_f - variables[1])/variables[3]
+    y_pos_norm = (y_pos_flat_f - variables[2])/variables[3]
+
+    G = LSQ.matrix_avg_gradient(x_pos_norm, y_pos_norm, j_max, variables[3], power_mat)
+    
+    x_pos_dist, y_pos_dist = Hm.centroid_positions(x_pos_flat_f, y_pos_flat_f, dist_image, xx, yy)
+
+    s = np.hstack(Hm.centroid2slope(x_pos_dist, y_pos_dist, x_pos_flat_f, y_pos_flat_f, px_size_sh, f_sh, r_sh_m, wavelength))
+    a = np.linalg.lstsq(G,s)[0]
+
+    orig = np.ma.array(orig, mask = mask)
+    inter = np.ma.array(Zn.int_for_comp(j_max, a, N, variables[0], Z_mat, fliplr = True), mask = mask)
+    rms = np.sqrt(np.sum((inter - orig)**2)/N**2)
+    return rms
+
+def rms_janss(variables, *args):
+    """calculate the rms value of the Janssen method with variables:
+    variables[0] = piston,
+    variables[1] = centre_x,
+    variables[2] = centre_y,
+    variables[3] = radius of circle on sh sensor[px],
+    Z_mat is used to calculate the Zernike polynomial on a grid, to compare with original interferogram.
+    arguments should be in order"""
+    if args:
+       x_pos_zero_f, y_pos_zero_f, image_control, dist_image, px_size_sh, f_sh, j_max, wavelength, xx, yy, N, orig, mask, Z_mat = args
+    else:
+        print("put the arguments!")
+        return
+    x_pos_flat_f, y_pos_flat_F = Hm.centroid_positions(x_pos_zero, y_pos_zero, image_control, xx, yy)
+
+    r_sh_m = px_size_sh * variables[3]
+
+    x_pos_norm = (x_pos_flat_f - variables[1])/variables[3]
+    y_pos_norm = (y_pos_flat_f - variables[2])/variables[3]   
+
+    ## calculate slopes
+    x_pos_dist, y_pos_dist = Hm.centroid_positions(x_pos_flat, y_pos_flat, dist_image, xx, yy)
+    dWdx, dWdy = Hm.centroid2slope(x_pos_dist, y_pos_dist, x_pos_flat_f, y_pos_flat_f, px_size_sh, f_sh, r_sh_m, wavelength)
+
+    ## make zernike matrix
+    kmax = np.power(np.ceil(np.sqrt(j_max)),2) #estimation of maximum fringe number
+    n, m = Zn.Zernike_j_2_nm(np.array(range(1, int(kmax)+1))) #find n and m pairs for maximum fringe number
+    Kmax = np.max(Zn.Zernike_nm_2_j(n+1, np.abs(m)+1)) #find highest order of j for which beta is needed
+    Z_mat_complex = Zn.complex_zernike(Kmax, x_pos_norm, y_pos_norm)
+
+    #Invert and solve for beta
+    dW_plus = dWdx + 1j * dWdy
+    dW_min = dWdx - 1j * dWdy
+    beta_plus = np.linalg.lstsq(Z_mat_complex, dW_plus)[0]
+    beta_min = np.linalg.lstsq(Z_mat_complex, dW_min)[0]
+
+    kmax = int(kmax)
+    a = np.zeros(kmax, dtype = np.complex_)
+    a_check = np.zeros(j_max, dtype = np.complex_)
+    #a_avg = np.zeros(j_max, dtype = np.complex_)
+    for jj in range(2, kmax+1):
+        n, m = Zn.Zernike_j_2_nm(jj)
+        index1 = int(Zn.Zernike_nm_2_j(n - 1.0, m + 1.0) - 1)
+        index2 = int(Zn.Zernike_nm_2_j(n - 1.0, m - 1.0) - 1)
+        index3 = int(Zn.Zernike_nm_2_j(n + 1.0, m + 1.0) - 1)
+        index4 = int(Zn.Zernike_nm_2_j(n + 1.0, m - 1.0) - 1)
+        fact1 = 1.0 / ( 2 * n * ( 1 + (n != abs(m))))
+        fact2 = 1.0 / (2 * (n+2) * ( 1 + (((n+2) != abs(m)))))
+        if m + 1.0 > n - 1.0:
+            a[jj-1] = fact1 * (beta_min[index2]) - fact2 * (beta_plus[index3] + beta_min[index4])
+        elif np.abs(m - 1.0) > np.abs(n - 1.0):
+            a[jj-1] = fact1 * (beta_plus[index1]) - fact2 * (beta_plus[index3] + beta_min[index4])
+        else:
+            a[jj-1] = fact1 * (beta_plus[index1] + beta_min[index2]) - fact2 * (beta_plus[index3] + beta_min[index4])
+
+    for jj in range(2, j_max+2):
+        n, m = Zn.Zernike_j_2_nm(jj)
+        if m > 0:
+            j_min = int(Zn.Zernike_nm_2_j(n, -m))
+            a_check[jj-2] = (1.0/np.sqrt(2*n+2))*(a[jj-1] + a[j_min-1])
+        elif m < 0:
+            j_plus = int(Zn.Zernike_nm_2_j(n, np.abs(m)))
+            a_check[jj-2] = (1.0/np.sqrt(2*n+2)) * (a[j_plus - 1] - a[jj-1]) * 1j
+        else:
+            a_check[jj-2] = (1.0/np.sqrt(n+1)) * a[jj-1]
+    a_janss = np.real(a_check)
+
+    orig = np.ma.array(orig, mask = mask)
+    inter = np.ma.array(Zn.int_for_comp(j_max, a_janss, N, variables[0], Z_mat, fliplr = True), mask = mask)
+    rms = np.sqrt(np.sum((inter - orig)**2)/N**2)
+    return rms
+
+bf_janss = time.time()
+vars_janss = opt.fmin(rms_janss, [mins[-1], centre[0], centre[1], r_sh_px], args = janss_args)
+aft_janss = time.time()
+print("All iterations Janssen took " + str(aft_janss - bf_janss) + " s")
+
+bf_lsq = time.time()
+vars_lsq = opt.fmin(rms_lsq, vars_janss, args = lsq_args, maxiter = 10)
+aft_lsq = time.time()
+print("10 iterations LSQ took " + str(aft_lsq-bf_lsq) +" s")
+
+
+## find coefficients according to optimum
+x_pos_norm_lsq = (x_pos_flat_f - vars_lsq[1])/vars_lsq[3]
+y_pos_norm_lsq = (y_pos_flat_f - vars_lsq[2])/vars_lsq[3]
+G = LSQ.matrix_avg_gradient(x_pos_norm_lsq, y_pos_norm_lsq, j_max, vars_lsq[3], power_mat)
+r_sh_px_lsq_opt = vars_lsq[3]
+pist_lsq_opt = vars_lsq[0]
+r_sh_m_lsq_opt = px_size_sh * vars_lsq[3]
+x_pos_dist, y_pos_dist = Hm.centroid_positions(x_pos_flat_f, y_pos_flat_f, dist_image, xx, yy)
+s = np.hstack(Hm.centroid2slope(x_pos_dist, y_pos_dist, x_pos_flat_f, y_pos_flat_f, px_size_sh, f_sh, r_sh_m_lsq_opt, wavelength))
+a_lsq_opt = np.linalg.lstsq(G, s)[0]
+
+### find coefficients janss according to optimum
+x_pos_norm_janss = (x_pos_flat_f - vars_janss[1])/vars_janss[3]
+y_pos_norm_janss = (y_pos_flat_f - vars_janss[2])/vars_janss[3]
+r_sh_m_janss = px_size_sh * vars_janss[3]
+a_janss_opt = janssen.coeff_optimum(x_pos_flat_f, y_pos_flat_f, x_pos_norm_janss, y_pos_norm_janss, xx, yy, dist_image, image_control, px_size_sh, f_sh, r_sh_m, wavelength, j_max)
+
+#a_lsq = LSQ.LSQ_coeff(x_pos_zero_f, y_pos_zero_f, x_pos_flat_f, y_pos_flat_f, G, image_control, dist_image, px_size_sh, r_sh_px_lsq_opt, f_sh, j_max, wavelength) 
+##a_janss = janssen.coeff(x_pos_zero_f, y_pos_zero_f, image_control, dist_image, px_size_sh, f_sh, r_sh_m, j_max, wavelength)
+##a_janss = np.real(a_janss)
+
+fliplsq = True
+flipjanss = True
+
+pist_lsq = vars_lsq[0]#opt.fmin(rms_piston, 0, args = (j_max, a_lsq, N, Z_mat, orig, mask, fliplsq))
+pist_janss = vars_janss[0]#opt.fmin(rms_piston, 0, args = (j_max, np.real(a_janss), N, Z_mat, orig, mask, flipjanss))
 
 
 f, ax = plt.subplots(2,2)
 ax[0,0].imshow(np.ma.array(orig, mask = mask), vmin = 0, vmax = 1, cmap = 'bone', origin = 'lower')
 Zn.plot_interferogram(j_max, a_filt[:,9], piston = mins[9], ax = ax[0,1])
-Zn.plot_interferogram(j_max, a_lsq, piston = pist_lsq, ax = ax[1,0], fliplr = True)
-Zn.plot_interferogram(j_max, a_janss, piston = pist_janss, ax = ax[1,1], fliplr = True)
+Zn.plot_interferogram(j_max, a_lsq_opt, piston = pist_lsq, ax = ax[1,0], fliplr = True)
+Zn.plot_interferogram(j_max, a_janss_opt, piston = pist_janss, ax = ax[1,1], fliplr = True)
 ax[0,0].set_title('original')
 ax[0,1].set_title('from int')
 ax[1,0].set_title('from lsq')
 ax[1,1].set_title('from janss')
-
+for axes in ax:
+    for axess in axes:
+        axess.set(adjustable = 'box-forced', aspect = 'equal')
+    #axes.set(adjustable = 'box-foced', aspect = 'equal')
 
 
 

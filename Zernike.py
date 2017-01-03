@@ -341,11 +341,13 @@ def plot_interferogram(j_max, a, piston = 0, ax = None, f = None, wantcbar = Fal
         cbar = plt.colorbar(interferogram, cax=cax)
     return interferogram
 
-def int_for_comp(j_max, a, N, piston, Z_mat, wavelength = 632.8e-9,):
+def int_for_comp(j_max, a, N, piston, Z_mat, wavelength = 632.8e-9, fliplr = False):
     Z = np.zeros(list(Z_mat.shape)[0:2])
     Z = np.sum(a * Z_mat, axis = 2)
     #Z /= wavelength
     Z += piston  
     phase = np.mod(Z - np.pi, 2*np.pi) - np.pi
     Intens = np.cos(phase/2.0)**2
+    if fliplr:
+        Intens = np.fliplr(Intens)
     return Intens
