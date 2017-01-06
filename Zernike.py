@@ -315,7 +315,8 @@ def plot_interferogram(j_max, a, piston = 0, ax = None, f = None, wantcbar = Fal
     j_range = np.arange(2, j_max+2)
     Z_mat = Zernike_xy(xi, yi, power_mat, j_range)
     Z = np.sum(a * Z_mat, axis = 2)
-
+    levels = np.linspace(0, 1, 15)
+    
     #Z /= wavelength
     #Z += piston
     #fig = plt.figure(figsize = plt.figaspect(1.))
@@ -332,7 +333,7 @@ def plot_interferogram(j_max, a, piston = 0, ax = None, f = None, wantcbar = Fal
         levels = kwargs['v']
         interferogram = ax.contourf(xn, yn, Intens, levels= levels, rstride = 1, cstride = 1, cmap= cmap, linewidth=0)
     else:
-        interferogram = ax.contourf(xn, yn, Intens,  rstride = 1, cstride = 1, cmap= cmap, linewidth=0)
+        interferogram = ax.contourf(xn, yn, Intens,  rstride = 1, cstride = 1, cmap= cmap, linewidth=0, levels = levels)
 
         
     if wantcbar:

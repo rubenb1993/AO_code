@@ -21,9 +21,9 @@ px_size_int = 5.2e-6
 
 
 #### Gather interferogram 
-impath_mirror = os.path.abspath("def_mirror.tif")
+impath_mirror = os.path.abspath("20170105_interferograms\image_ref_mirror.tif")
 image_mirror = np.asarray(PIL.Image.open(impath_mirror)).astype(float)
-impath_int = os.path.abspath("interferogram_75_defocus.tif")
+impath_int = os.path.abspath("dm_int.tif")
 image_int = np.asarray(PIL.Image.open(impath_int)).astype(float)
 
 
@@ -33,39 +33,39 @@ y = np.linspace(1, ny, ny)
 xx, yy = np.meshgrid(x, y)
 centre = np.zeros(2)
 #image_mirror[0:100, :] = 0
-image_mirror[image_mirror<8] = 0
-image_mirror[image_mirror > 6] = 255
-norm_photons = 1.0/np.sum(image_mirror)
-centre[0] = norm_photons * np.sum(image_mirror * xx)
-centre[1] = norm_photons * np.sum(image_mirror * yy)
-plt.imshow(image_mirror, cmap = 'bone')
-plt.scatter(centre[0], centre[1])
-plt.show()
-
-
-
-x0 = centre[0]
-y0 = centre[1]
-print x0, y0
-
-size = 360
+##image_mirror[image_mirror<8] = 0
+##image_mirror[image_mirror > 6] = 255
+##x_pos_zero, y_pos_zero = Hm.zero_positions(image_mirror)
+##centre = Hm.centroid_centre(x_pos_zero, y_pos_zero)
+##plt.imshow(image_mirror, cmap = 'bone')
+##plt.scatter(centre[0], centre[1])
+##plt.show()
+##
+##
+##
+##x0 = centre[0]
+##y0 = centre[1]
+##print x0, y0
+x0 = 550
+y0 = 484
+size = 340
 mask = [np.sqrt((xx-x0)**2 + (yy-y0)**2) <= size]
 image_int *= np.squeeze(mask)
-image_mirror *= np.squeeze(mask)
-img_int_sq = image_int[centre[1] - 1.2*size: centre[1] + 1.2*size, centre[0] - 1.2*size: centre[0] + 1.2*size]
-img_mirror_sq = image_mirror[centre[1] - 1.2*size: centre[1] + 1.2*size, centre[0] - 1.2*size: centre[0] + 1.2*size]
-print size*px_size_int
-#image_int[image_int < 10] = 0
+#image_mirror *= np.squeeze(mask)
+img_int_sq = image_int[y0 - size: y0 + size,x0 - size: x0 + size]
+#img_mirror_sq = image_mirror[centre[1] - 1.2*size: centre[1] + 1.2*size, centre[0] - 1.2*size: centre[0] + 1.2*size]
+#print size*px_size_int
+image_int[image_int < 10] = 0
 ##image_int[:, :530] = 0
 ##image_int[:, 600:] = 0
 ##image_int[135:870, :] = 0
 f, (ax1, ax2) = plt.subplots(1,2)
 ax1.imshow(img_int_sq, cmap = 'bone')
 ax1.scatter(432, 432)
-ax1.scatter(432 - 550 + centre[0], -484 + 432 + centre[1], color = 'r')
-ax2.imshow(img_mirror_sq, cmap = 'bone')
+ax1.scatter(432 - 550 + x0, -484 + 432 + y0, color = 'r')
+#ax2.imshow(img_mirror_sq, cmap = 'bone')
 ax2.scatter(432, 432)
-ax2.scatter(432 - 550 + centre[0], -484 + 432 + centre[1], color = 'r')
+ax2.scatter(432 - 550 + x0, -484 + 432 + y0, color = 'r')
 plt.show()
 #a = np.where(image_int > 10.0)
 #print(np.array(a).shape[1])

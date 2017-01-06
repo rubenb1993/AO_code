@@ -22,6 +22,7 @@ import phase_unwrapping_test as pw
 import LSQ_method as LSQ
 import detect_peaks as dp
 import scipy.fftpack as fftp
+import Zernike as Zn
 import itertools
 from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.colors as cm
@@ -58,7 +59,7 @@ def hough_numpy(img, x, y):
 
     return Acc, rhos, thetas, diag_len
 
-def max_finding(Acc, rhos, thetas, minheight = 0, lookahead = 30):
+def max_finding(Acc, rhos, thetas, minheight = 85, lookahead = 35):
     idmax = np.argmax(Acc)
     rho_max_index, theta_max_index = np.unravel_index(idmax, Acc.shape)
     peak_indices = dp.detect_peaks(Acc[:, theta_max_index], mph = minheight, mpd = lookahead)
@@ -97,7 +98,7 @@ def weight_thicken(indices, weight_matrix, border = 10):
     weight_matrix[coords[0], coords[1] +1] = 0
     return weight_matrix
 
-def phase_extraction(constants, take_new_img = False, folder_name = "20161130_five_inter_test/", show_id_hat = False, show_hough_peaks = False):
+def phase_extraction(constants, take_new_img = False, folder_name = "20161130_five_inter_test/", show_id_hat = False, show_hough_peaks = False, a_abb = np.zeros(10), min_height = 80, look_ahead = 15):
     px_size_sh, px_size_int, f_sh, r_int_px, r_sh_px, r_sh_m, j_max, wavelength, box_len, x0, y0, radius = constants
     x0, y0, radius = int(x0), int(y0), int(radius)
     if take_new_img == True:
@@ -130,14 +131,18 @@ def phase_extraction(constants, take_new_img = False, folder_name = "20161130_fi
         PIL.Image.fromarray(flat_wf).save(folder_name + "flat_wf.tif")
 
         raw_input("black reference mirror again!")
+        power_mat = Zn.Zernike_power_mat(j_max+2)
+        G = LSQ.matrix_avg_gradient(x_pos_norm_f, y_pos_norm_f, j_max, r_sh_px, power_mat)
+
+        if a_abb.all(0):
+            a = np.zeros(j_max)
+            ind = np.array([4])
+            #a[ind] = 0.15 * wavelength
+            a[ind] = 1.5 * wavelength
+        else:
+            a = a_abb
+
         
-        G = LSQ.matrix_avg_gradient(x_pos_norm_f, y_pos_norm_f, j_max, r_sh_px)
-        a = np.zeros(j_max)
-
-        ind = np.array([4])
-        #a[ind] = 0.15 * wavelength
-        a[ind] = 1.5 * wavelength
-
         u_dm_flat = u_dm
         #V2D_inv = np.linalg.pinv(V2D)
         v_abb = (f_sh/(r_sh_m * px_size_sh)) * np.linalg.lstsq(V2D, np.dot(G, a))[0]#np.dot(V2D_inv, np.dot(G, a))
@@ -249,7 +254,7 @@ def phase_extraction(constants, take_new_img = False, folder_name = "20161130_fi
     for jj in range(4):
         Acc[...,jj], rhos, thetas, diag_len = hough_numpy(Id_zeros_mask[..., jj], x, y)
         print("Hough transform " + str(jj+1) + " done!")
-        theta_max[jj], s_max[jj], theta_max_index, peak_indices = max_finding(Acc[...,jj], rhos, thetas, minheight = 50, lookahead = 10)
+        theta_max[jj], s_max[jj], theta_max_index, peak_indices = max_finding(Acc[...,jj], rhos, thetas, minheight = min_height, lookahead = look_ahead)
         ## uncomment to check if peaks align with found peaks visually
         if show_hough_peaks == True:
             f2, axarr2 = plt.subplots(2,1)

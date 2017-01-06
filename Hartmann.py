@@ -8,7 +8,7 @@ def zero_positions(image, spotsize = 35):
     x_pos_flat = []
     y_pos_flat = []
     image[image<6] = 0
-    while(np.amax(image) > 15):
+    while(np.amax(image) > 10):
         y_max, x_max = np.unravel_index(image.argmax(), image.shape)
         x_pos_flat.append(x_max)
         y_pos_flat.append(y_max)
@@ -25,7 +25,7 @@ def centroid_positions(x_pos_flat, y_pos_flat, image, xx, yy, spot_size = 35):
     spot_size: approximate width of domain (in px) of one SH lenslet
     output: 2 arrays of x and y centroids in new figure"""
     centroids = np.zeros(shape = (len(x_pos_flat),2))
-    image[image<6] = 0 #remove noisy pixels
+    image[image<3] = 0 #remove noisy pixels
     for i in range(len(x_pos_flat)):
         y_low = int(y_pos_flat[i]) - spot_size
         y_high = int(y_pos_flat[i]) + spot_size
