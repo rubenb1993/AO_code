@@ -39,7 +39,7 @@ def rms_lsq(variables, *args):
     Z_mat is used to calculate the Zernike polynomial on a grid, to compare with original interferogram.
     arguments should be in order"""
     if args:
-       wavelength, j_max, f_sh, px_size_sh, dist_image, image_control, y_pos_flat_f, x_pos_flat_f, y_pos_zero_f, x_pos_zero_f, xx, yy, orig, mask, N, Z_mat, power_mat = args
+       wavelength, j_max, f_sh, px_size_sh, dist_image, image_control, y_pos_flat_f, x_pos_flat_f, y_pos_zero_f, x_pos_zero_f, xx, yy, orig, mask, N, Z_mat, power_mat, box_len = args
     else:
         print("put the arguments!")
         return
@@ -47,6 +47,9 @@ def rms_lsq(variables, *args):
 
     x_pos_norm = (x_pos_flat_f - variables[1])/variables[3]
     y_pos_norm = (y_pos_flat_f - variables[2])/variables[3]
+
+    inside = np.sqrt(x_pos_norm ** 2 + y_pos_norm**2) <= (1+ (box_len/variables[3]))
+    x_pos_norm, y_pos_norm, x_pos_flat_f,y_pos_flat_f = mc.filter_positions(inside, x_pos_norm, y_pos_norm, x_pos_flat_f, y_pos_flat_f)
 
     G = LSQ.matrix_avg_gradient(x_pos_norm, y_pos_norm, j_max, variables[3], power_mat)
     
@@ -69,7 +72,7 @@ def rms_janss(variables, *args):
     Z_mat is used to calculate the Zernike polynomial on a grid, to compare with original interferogram.
     arguments should be in order"""
     if args:
-       x_pos_zero_f, y_pos_zero_f, image_control, dist_image, px_size_sh, f_sh, j_max, wavelength, xx, yy, N, orig, mask, Z_mat = args
+       x_pos_zero_f, y_pos_zero_f, image_control, dist_image, px_size_sh, f_sh, j_max, wavelength, xx, yy, N, orig, mask, Z_mat, box_len = args
     else:
         print("put the arguments!")
         return
@@ -81,9 +84,8 @@ def rms_janss(variables, *args):
     y_pos_norm = (y_pos_flat_f - variables[2])/variables[3]
 
     ### check if all is within circle
-    if np.any(np.sqrt(x_pos_norm ** 2 + y_pos_norm**2) >= (1+ (35/variables[3]))):
-        outside = np.sqrt(x_pos_norm ** 2 + y_pos_norm**2) >= (1+ (35/variables[3]))
-        print(np.sqrt(x_pos_norm[outside]**2 + y_pos_norm[outside]**2))
+    inside = np.sqrt(x_pos_norm ** 2 + y_pos_norm**2) <= (1+ (box_len/variables[3]))
+    x_pos_norm, y_pos_norm, x_pos_flat_f,y_pos_flat_f = mc.filter_positions(inside, x_pos_norm, y_pos_norm, x_pos_flat_f, y_pos_flat_f)
 
     ## calculate slopes
     x_pos_dist, y_pos_dist = Hm.centroid_positions(x_pos_flat_f, y_pos_flat_f, dist_image, xx, yy)
@@ -322,8 +324,9 @@ xi, yi = np.meshgrid(xi, yi)
 j_range = np.arange(2, j_max+2)
 Z_mat = Zn.Zernike_xy(xi, yi, power_mat, j_range)
 Z = np.zeros((N, N, len(pistons), a_filt.shape[-1]))
-orig /= np.max(orig) * 0.9
-orig[orig > 1] = 1
+##orig /= np.max(orig) * 0.9
+##orig[orig > 1] = 1
+orig /= np.max(orig)
 
 mins = np.zeros(a_filt.shape[-1])
 f, ax = plt.subplots(2, 5)
@@ -359,8 +362,8 @@ inside = np.where(np.sqrt(x_pos_norm**2 + y_pos_norm**2) <= (1 + (box_len/r_sh_p
 x_pos_zero_f, y_pos_zero_f, x_pos_flat_f, y_pos_flat_f, x_pos_norm_f, y_pos_norm_f = mc.filter_positions(inside, x_pos_zero, y_pos_zero, x_pos_flat, y_pos_flat, x_pos_norm, y_pos_norm)
 G = LSQ.matrix_avg_gradient(x_pos_norm_f, y_pos_norm_f, j_max, r_sh_px, power_mat)
 
-lsq_args = (wavelength, j_max, f_sh, px_size_sh, dist_image, image_control, y_pos_flat_f, x_pos_flat_f, y_pos_zero_f, x_pos_zero_f, xx, yy, orig, mask, N, Z_mat, power_mat)
-janss_args = (x_pos_zero_f, y_pos_zero_f, image_control, dist_image, px_size_sh, f_sh, j_max, wavelength, xx, yy, N, orig, mask, Z_mat)
+lsq_args = (wavelength, j_max, f_sh, px_size_sh, dist_image, image_control, y_pos_flat_f, x_pos_flat_f, y_pos_zero_f, x_pos_zero_f, xx, yy, orig, mask, N, Z_mat, power_mat, box_len)
+janss_args = (x_pos_zero_f, y_pos_zero_f, image_control, dist_image, px_size_sh, f_sh, j_max, wavelength, xx, yy, N, orig, mask, Z_mat, box_len)
 
 bf_janss = time.time()
 vars_janss = opt.fmin(rms_janss, [mins[-1], centre[0], centre[1], r_sh_px], args = janss_args)
@@ -368,7 +371,7 @@ aft_janss = time.time()
 print("All iterations Janssen took " + str(aft_janss - bf_janss) + " s")
 
 bf_lsq = time.time()
-vars_lsq = opt.fmin(rms_lsq, vars_janss, args = lsq_args, maxiter = 10)
+vars_lsq = opt.fmin(rms_lsq, vars_janss, args = lsq_args, maxiter = 1000)
 aft_lsq = time.time()
 print("10 iterations LSQ took " + str(aft_lsq-bf_lsq) +" s")
 
@@ -383,14 +386,14 @@ r_sh_m_lsq_opt = px_size_sh * vars_lsq[3]
 x_pos_dist, y_pos_dist = Hm.centroid_positions(x_pos_flat_f, y_pos_flat_f, dist_image, xx, yy)
 s = np.hstack(Hm.centroid2slope(x_pos_dist, y_pos_dist, x_pos_flat_f, y_pos_flat_f, px_size_sh, f_sh, r_sh_m_lsq_opt, wavelength))
 a_lsq_opt = np.linalg.lstsq(G, s)[0]
-rms_lsq = rms_lsq(vars_lsq, wavelength, j_max, f_sh, px_size_sh, dist_image, image_control, y_pos_flat_f, x_pos_flat_f, y_pos_zero_f, x_pos_zero_f, xx, yy, orig, mask, N, Z_mat, power_mat)
+rms_lsq = rms_lsq(vars_lsq, wavelength, j_max, f_sh, px_size_sh, dist_image, image_control, y_pos_flat_f, x_pos_flat_f, y_pos_zero_f, x_pos_zero_f, xx, yy, orig, mask, N, Z_mat, power_mat, box_len)
 
 ### find coefficients janss according to optimum
 x_pos_norm_janss = (x_pos_flat_f - vars_janss[1])/vars_janss[3]
 y_pos_norm_janss = (y_pos_flat_f - vars_janss[2])/vars_janss[3]
 r_sh_m_janss = px_size_sh * vars_janss[3]
 a_janss_opt = janssen.coeff_optimum(x_pos_flat_f, y_pos_flat_f, x_pos_norm_janss, y_pos_norm_janss, xx, yy, dist_image, image_control, px_size_sh, f_sh, r_sh_m_janss, wavelength, j_max)
-rms_janss = rms_janss(vars_janss, x_pos_zero_f, y_pos_zero_f, image_control, dist_image, px_size_sh, f_sh, j_max, wavelength, xx, yy, N, orig, mask, Z_mat)
+rms_janss = rms_janss(vars_janss, x_pos_zero_f, y_pos_zero_f, image_control, dist_image, px_size_sh, f_sh, j_max, wavelength, xx, yy, N, orig, mask, Z_mat, box_len)
 
 #a_lsq = LSQ.LSQ_coeff(x_pos_zero_f, y_pos_zero_f, x_pos_flat_f, y_pos_flat_f, G, image_control, dist_image, px_size_sh, r_sh_px_lsq_opt, f_sh, j_max, wavelength) 
 ##a_janss = janssen.coeff(x_pos_zero_f, y_pos_zero_f, image_control, dist_image, px_size_sh, f_sh, r_sh_m, j_max, wavelength)
@@ -420,7 +423,7 @@ for i in range(4):
     axes[i].set_title(titles[i], fontsize = 9)
 cbar = plt.colorbar(interf, cax = axes[-1], ticks = [0.0, 0.25, 0.5, 0.75, 1.0])
 cbar.ax.tick_params(labelsize=7)
-f.savefig(fold_name+'methods_compared_small_rad.png', bbox_inches = 'tight', dpi = dpi_num)
+f.savefig(fold_name+'methods_compared_additional_filter.png', bbox_inches = 'tight', dpi = dpi_num)
 
 f2, ax2 = plt.subplots(nrows = 1, ncols = 1, figsize = (4.98, 4.98/4.4))
 sign_janss = np.sign(a_janss_opt[0])
@@ -432,10 +435,14 @@ ax2.scatter(a_x, a_janss_opt, marker = 'o', color = 'g', label = 'janssen')
 ax2.scatter(a_x, a_lsq_opt, marker = '2', color = 'b', label = 'LSQ')
 ax2.legend(prop={'size':7})
 ax2.set_xlim([0,30])
-f2.savefig(fold_name+'zernike_coeff_compared_small_rad.png', bbox_inches = 'tight', dpi = dpi_num)
+f2.savefig(fold_name+'zernike_coeff_compared_additional_filter.png', bbox_inches = 'tight', dpi = dpi_num)
 
 rms_dict = {'rms_inter':rms_vec[-1],'rms_lsq':rms_lsq, 'rms_janss':rms_janss}
-np.save('rms_dictionary_small_rad.npy', rms_dict)
+vars_dict = {'vars_lsq':vars_lsq, 'vars_janss':vars_janss}
+coeff_dict = {'coeff_inter':a_filt[:,-1], 'coeff_lsq':a_lsq_opt, 'coeff_janss':a_janss_opt}
+np.save('vars_dictionary.npy', vars_dict)
+np.save('coeff_dictionary.npy', coeff_dict)
+np.save('rms_dictionary_additional_filter.npy', rms_dict)
 print(" rms interferogram: " + str(rms_vec[-1]) + ",\n rms LSQ: " + str(rms_lsq) + ",\n rms Janssen: " + str(rms_janss))
 
 ##
