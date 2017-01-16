@@ -8,7 +8,7 @@ def zero_positions(image, spotsize = 35):
     x_pos_flat = []
     y_pos_flat = []
     image[image<6] = 0
-    while(np.amax(image) > 10):
+    while(np.amax(image) > 15):
         y_max, x_max = np.unravel_index(image.argmax(), image.shape)
         x_pos_flat.append(x_max)
         y_pos_flat.append(y_max)

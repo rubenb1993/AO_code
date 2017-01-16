@@ -28,6 +28,8 @@ from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.colors as cm
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from matplotlib import rc
+import scipy.ndimage as ndimage
+
 
 # Define font for figures
 rc('font', **{'family': 'serif', 'serif': ['Computer Modern']})
@@ -98,7 +100,7 @@ def weight_thicken(indices, weight_matrix, border = 10):
     weight_matrix[coords[0], coords[1] +1] = 0
     return weight_matrix
 
-def phase_extraction(constants, take_new_img = False, folder_name = "20161130_five_inter_test/", show_id_hat = False, show_hough_peaks = False, a_abb = np.zeros(10), min_height = 80, look_ahead = 15):
+def phase_extraction(constants, take_new_img = False, folder_name = "20161130_five_inter_test/", show_id_hat = False, show_hough_peaks = False, a_abb = np.zeros(10), min_height = 80, look_ahead = 15, k_I = 5, save_id_hat = True):
     px_size_sh, px_size_int, f_sh, r_int_px, r_sh_px, r_sh_m, j_max, wavelength, box_len, x0, y0, radius = constants
     x0, y0, radius = int(x0), int(y0), int(radius)
     if take_new_img == True:
@@ -123,7 +125,7 @@ def phase_extraction(constants, take_new_img = False, folder_name = "20161130_fi
         PIL.Image.fromarray(zero_pos_dm).save(folder_name + "zero_pos_dm.tif")
 
         ### make flat wavefront
-        u_dm, x_pos_norm_f, y_pos_norm_f, x_pos_zero_f, y_pos_zero_f, V2D = mc.flat_wavefront(u_dm, zero_pos_dm, image_ref_mirror, r_sh_px, r_int_px, sh, mirror, show_accepted_spots = True)
+        u_dm, x_pos_norm_f, y_pos_norm_f, x_pos_zero_f, y_pos_zero_f, V2D = mc.flat_wavefront(u_dm, zero_pos_dm, image_ref_mirror, r_sh_px, r_int_px, sh, mirror, show_accepted_spots = False)
 
         raw_input("remove paper for flat wavefront")
         int_cam.snapImage()
@@ -146,6 +148,7 @@ def phase_extraction(constants, take_new_img = False, folder_name = "20161130_fi
         u_dm_flat = u_dm
         #V2D_inv = np.linalg.pinv(V2D)
         v_abb = (f_sh/(r_sh_m * px_size_sh)) * np.linalg.lstsq(V2D, np.dot(G, a))[0]#np.dot(V2D_inv, np.dot(G, a))
+        print(v_abb[4], v_abb[7])
         u_dm -= v_abb
 
         if np.any(np.abs(u_dm) > 1.0):
@@ -279,6 +282,13 @@ def phase_extraction(constants, take_new_img = False, folder_name = "20161130_fi
     delta_i = (tau_i + sigma)/2.0
     sin_diff = np.sin(delta_i)
     Id_hat = Id_int/(-2.0 * sin_diff)
+
+    if save_id_hat == True:
+        np.save(folder_name + "id_hat.npy", Id_hat)
+##    filter_hat = raw_input("do you want to filter Id_hat?")
+##    if filter_hat == 'y':
+    for i in range(Id_hat.shape[-1]):
+        Id_hat[...,i] = ndimage.median_filter(Id_hat[...,i], k_I)
 
     if show_id_hat == True:
         f, ax = plt.subplots(1,4)

@@ -45,7 +45,7 @@ def avg_complex_zernike(x_pos_norm, y_pos_norm, j_max, r_int_px, spot_size = 35)
     y_up = y_pos_norm + half_len_box
     y_down = y_pos_norm - half_len_box
     j_range = np.arange(1, j_max+2)
-    Cnm_avg = np.zeros(len(x_pos_norm), len(j_range))
+    Cnm_avg = np.zeros((len(x_pos_norm), len(j_range)), dtype = np.complex_)
     for ii in range(len(x_pos_norm)):
         x, y = np.linspace(x_left[ii], x_right[ii], box_px), np.linspace(y_down[ii], y_up[ii], box_px)
         xx, yy = np.meshgrid(x, y)
@@ -53,7 +53,7 @@ def avg_complex_zernike(x_pos_norm, y_pos_norm, j_max, r_int_px, spot_size = 35)
         Cnm_xy = Zn.complex_zernike(j_max, xx, yy)
         tiled_mask = np.tile(mask, (Cnm_xy.shape[2],1,1)).T
         Cnm_mask = np.ma.array(Cnm_xy, mask = tiled_mask)
-        Cnm_avg[ii,:] = np.sum(Cnm_mask, axis = (0,1))/box_px**2
+        Cnm_avg[ii,:] = Cnm_mask.mean(axis = (0,1))
     return Cnm_avg
 
 
