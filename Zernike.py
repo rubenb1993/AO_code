@@ -361,6 +361,34 @@ def plot_interferogram(j_max, a, piston = 0, ax = None, f = None, wantcbar = Fal
         cbar = plt.colorbar(interferogram, cax=cax)
     return interferogram
 
+def imshow_interferogram(j_max, a, N, ax = None, f = None, wantcbar = False, piston = 0, cmap = 'bone', wavelength = 632.8e-9, fliplr = False, **kwargs):
+    if ax is None:
+        ax = plt.gca()
+    xi, yi = np.linspace(-1, 1, N), np.linspace(-1, 1, N)
+    xi, yi = np.meshgrid(xi, yi)
+    j_range = np.arange(2, j_max+2)
+    if 'power_mat' in kwargs:
+        power_mat = kwargs['power_mat']
+    else:
+        power_mat = Zernike_power_mat(j_max+2)
+    if 'Z_mat' in kwargs:
+        Z_mat = kwargs['Z_mat']
+    else:
+        Z_mat = Zernike_xy(xi, yi, power_mat, j_range)
+    Z = np.sum(a * Z_mat, axis = 2)
+    Z += piston
+    phase = np.mod(Z - np.pi, 2*np.pi) - np.pi
+    Intens = np.cos(phase/2.0)**2
+    if fliplr:
+        Intens = np.fliplr(Intens)
+    interferogram = ax.imshow(np.ma.masked_where(xi**2 + yi**2 >= 1, Intens), vmin = 0, vmax = 1, cmap = cmap, origin = 'lower', interpolation = 'none')
+    if wantcbar:
+        divider = make_axes_locatable(ax)
+        cax = divider.append_axes("right", size="5%", pad=0.1)
+        cbar = plt.colorbar(interferogram, cax=cax)
+
+    return Intens
+
 def int_for_comp(j_max, a, N, piston, Z_mat, wavelength = 632.8e-9, fliplr = False):
     Z = np.zeros(list(Z_mat.shape)[0:2])
     Z = np.sum(a * Z_mat, axis = 2)

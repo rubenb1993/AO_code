@@ -7,6 +7,8 @@ import PIL
 import mirror_control as mc
 import scipy.optimize as opt
 import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
+
 
 def rms_janss(variables, *args):
     """calculate the rms value of the Janssen method with variables:
@@ -291,20 +293,62 @@ y_pos_norm = ((y_pos_flat - centre[1]))/r_sh_px
 inside = np.where(np.sqrt(x_pos_norm**2 + y_pos_norm**2) <= (1 + (box_len/r_sh_px))) #35 is the half the width of the pixel box aroudn a centroid and r_sh_px is the scaling factor
 x_pos_zero_f, y_pos_zero_f, x_pos_flat_f, y_pos_flat_f, x_pos_norm_f, y_pos_norm_f = mc.filter_positions(inside, x_pos_zero, y_pos_zero, x_pos_flat, y_pos_flat, x_pos_norm, y_pos_norm)
 integrate = False
+inside_without_outsides = np.where(np.sqrt(x_pos_norm**2 + y_pos_norm**2) <= 1 - (box_len/r_sh_px))
+x_pos_norm_f_wth, y_pos_norm_f_wth = mc.filter_positions(inside_without_outsides, x_pos_norm, y_pos_norm)
 
 janss_args = (x_pos_zero_f, y_pos_zero_f, image_control, dist_image, px_size_sh, f_sh, j_max, wavelength, xx, yy, N, orig, mask, Z_mat, box_len, integrate)
 
+x_norm_mat, y_norm_mat = np.meshgrid(x_pos_norm_f, y_pos_norm_f)
 
-print("checking 1")
-vars_janss, janss_rms = opt.fmin(rms_janss, [2.5, centre[0], centre[1], r_sh_px], args = janss_args, full_output = True, maxiter = 1000)[:2]
-a_janss = a_from_vars_int(vars_janss, x_pos_zero_f, y_pos_zero_f, image_control, dist_image, px_size_sh, f_sh, j_max, wavelength, xx, yy, N, orig, mask, Z_mat, box_len, integrate)
-##
-##print("checking 2")
-##vars_janss_int, janss_int_rms = opt.fmin(rms_janss_int, [2.5, centre[0], centre[1], r_sh_px], args = janss_args, full_output = True, maxiter = 1000)[:2]
-integrate = True
-vars_janss_int = np.load(folder_name + "var_janss_int.npy")
-a_janss_int = a_from_vars_int(vars_janss_int, x_pos_zero_f, y_pos_zero_f, image_control, dist_image, px_size_sh, f_sh, j_max, wavelength, xx, yy, N, orig, mask, Z_mat, box_len, integrate)
-f, ax = plt.subplots(1,2)
-Zn.plot_interferogram(j_max, a_janss, f = f, ax = ax[0])
-Zn.plot_interferogram(j_max, a_janss_int, f = f, ax = ax[1])
+Z_mat_com_int = janssen.avg_complex_zernike(x_pos_norm_f, y_pos_norm_f, 200, 310)
+Z_mat_com_non = Zn.complex_zernike(200, x_pos_norm_f, y_pos_norm_f)
+Z_mat_int_wth, Z_mat_non_wth = janssen.avg_complex_zernike(x_pos_norm_f_wth, y_pos_norm_f_wth, 200, 310), Zn.complex_zernike(200, x_pos_norm_f_wth, y_pos_norm_f_wth)
+
+rms_mat = np.sqrt((Z_mat_com_int - Z_mat_com_non)**2)/len(x_pos_norm_f)
+rms = np.sum(rms_mat, axis = 0)
+rms_mat_wth = np.sqrt((Z_mat_int_wth - Z_mat_non_wth)**2)/len(x_pos_norm_f_wth)
+rms_wth = np.sum(rms_mat_wth, axis = 0)
+#plot_z = Z_mat_com[:, 98].reshape(x_norm_mat)
+
+fig = plt.figure()
+ax = fig.add_subplot(121, projection='3d')
+ax.scatter(x_pos_norm_f, y_pos_norm_f, rms_mat[:,189])
+ax.set_zlim(bottom= 0)
+ax.set_xlabel(r'x')
+ax.set_ylabel(r'y')
+ax.set_zlabel(r'rms error')
+ax.set_title(r'allowing outside spots')
+ax3 = fig.add_subplot(122, projection = '3d')
+ax3.scatter(x_pos_norm_f_wth, y_pos_norm_f_wth, rms_mat_wth[:,189])
+ax3.set_zlim(bottom= 0)
+ax3.set_xlabel(r'x')
+ax3.set_ylabel(r'y')
+ax3.set_zlabel(r'rms error')
+ax3.set_title(r'not allowing outside spots')
+
+fig.savefig(folder_name + "scatter_rms_j_189_with_outsides.png", bbox_inches = 'tight', dpi = dpi_num)
+f2, ax2 = plt.subplots(1,2, sharey = True)
+ax2[0].set_yscale('log')
+ax2[0].plot(rms[1:])
+ax2[0].set_xlabel(r'fringe number $j$')
+ax2[0].set_ylabel(r'rms error')
+ax2[0].set_title(r'allowing outside spots')
+ax2[1].plot(rms_wth[1:])
+ax2[1].set_xlabel(r'fringe number $j$')
+ax2[1].set_ylabel(r'rms error')
+ax2[1].set_title(r'not allowing outside spots')
+f2.savefig(folder_name + "rms_per_j_with_outsides.png", bbox_inches = 'tight', dpi = dpi_num)
 plt.show()
+##print("checking 1")
+##vars_janss, janss_rms = opt.fmin(rms_janss, [2.5, centre[0], centre[1], r_sh_px], args = janss_args, full_output = True, maxiter = 1000)[:2]
+##a_janss = a_from_vars_int(vars_janss, x_pos_zero_f, y_pos_zero_f, image_control, dist_image, px_size_sh, f_sh, j_max, wavelength, xx, yy, N, orig, mask, Z_mat, box_len, integrate)
+####
+####print("checking 2")
+####vars_janss_int, janss_int_rms = opt.fmin(rms_janss_int, [2.5, centre[0], centre[1], r_sh_px], args = janss_args, full_output = True, maxiter = 1000)[:2]
+##integrate = True
+##vars_janss_int = np.load(folder_name + "var_janss_int.npy")
+##a_janss_int = a_from_vars_int(vars_janss_int, x_pos_zero_f, y_pos_zero_f, image_control, dist_image, px_size_sh, f_sh, j_max, wavelength, xx, yy, N, orig, mask, Z_mat, box_len, integrate)
+##f, ax = plt.subplots(1,2)
+##Zn.plot_interferogram(j_max, a_janss, f = f, ax = ax[0])
+##Zn.plot_interferogram(j_max, a_janss_int, f = f, ax = ax[1])
+##plt.show()

@@ -23,9 +23,8 @@ px_size_int = 5.2e-6
 #### Gather interferogram 
 impath_mirror = os.path.abspath("20170105_interferograms\image_ref_mirror.tif")
 image_mirror = np.asarray(PIL.Image.open(impath_mirror)).astype(float)
-impath_int = os.path.abspath("dm_int.tif")
+impath_int = os.path.abspath("20170116_aligned_setup_test/interferogram.tif")
 image_int = np.asarray(PIL.Image.open(impath_int)).astype(float)
-
 
 [ny,nx] = image_int.shape
 x = np.linspace(1, nx, nx)
@@ -48,11 +47,11 @@ centre = np.zeros(2)
 ##print x0, y0
 x0 = 550
 y0 = 484
-size = 340
+size = 280
 mask = [np.sqrt((xx-x0)**2 + (yy-y0)**2) <= size]
 image_int *= np.squeeze(mask)
 #image_mirror *= np.squeeze(mask)
-img_int_sq = image_int[y0 - size: y0 + size,x0 - size: x0 + size]
+img_int_sq = image_int[y0 - size: y0 + size,x0 - size: x0 + si52ze]
 #img_mirror_sq = image_mirror[centre[1] - 1.2*size: centre[1] + 1.2*size, centre[0] - 1.2*size: centre[0] + 1.2*size]
 #print size*px_size_int
 image_int[image_int < 10] = 0
@@ -61,11 +60,11 @@ image_int[image_int < 10] = 0
 ##image_int[135:870, :] = 0
 f, (ax1, ax2) = plt.subplots(1,2)
 ax1.imshow(img_int_sq, cmap = 'bone')
-ax1.scatter(432, 432)
-ax1.scatter(432 - 550 + x0, -484 + 432 + y0, color = 'r')
+#ax1.scatter(432, 432)
+#ax1.scatter(432 - 550 + x0, -484 + 432 + y0, color = 'r')
 #ax2.imshow(img_mirror_sq, cmap = 'bone')
-ax2.scatter(432, 432)
-ax2.scatter(432 - 550 + x0, -484 + 432 + y0, color = 'r')
+##ax2.scatter(432, 432)
+##ax2.scatter(432 - 550 + x0, -484 + 432 + y0, color = 'r')
 plt.show()
 #a = np.where(image_int > 10.0)
 #print(np.array(a).shape[1])

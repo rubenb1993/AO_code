@@ -18,6 +18,7 @@ import phase_extraction as PE
 import phase_unwrapping_test as pw
 import scipy.optimize as opt
 import scipy.ndimage as ndimage
+import json #to write editable txt files
 
 def rms_piston(piston, *args):
     """function for rms value to be minimized. args should contain j_max, a_filt, N, Z_mat, orig, mask in that order"""
@@ -96,7 +97,7 @@ def rms_janss(variables, *args):
     kmax = np.power(np.ceil(np.sqrt(j_max)),2) #estimation of maximum fringe number
     n, m = Zn.Zernike_j_2_nm(np.array(range(1, int(kmax)+1))) #find n and m pairs for maximum fringe number
     Kmax = np.max(Zn.Zernike_nm_2_j(n+1, np.abs(m)+1)) #find highest order of j for which beta is needed
-    Z_mat_complex = Zn.complex_zernike(Kmax, x_pos_norm, y_pos_norm)
+    Z_mat_complex = janssen.avg_complex_zernike(x_pos_norm, y_pos_norm, Kmax, variables[3])
 
     #Invert and solve for beta
     dW_plus = dWdx + 1j * dWdy
@@ -148,8 +149,8 @@ rc('text', usetex=True)
 px_size_sh = 5.2e-6     # width of pixels
 px_size_int = 5.2e-6
 f_sh = 17.6e-3            # focal length
-r_int_px = 310
-r_sh_px = 320
+r_int_px = 280
+r_sh_px = 280
 r_sh_m = r_sh_px * px_size_int
 j_max= 30         # maximum fringe order
 wavelength = 632e-9 #[m]
@@ -160,13 +161,13 @@ dpi_num = 600
 int_im_size = (4.98, 3.07)
 int_im_size_23 = (0.66 * 4.98, 3.07)
 int_im_size_13 = (0.33 * 4.98, 3.07)
-fold_name = "20170112_2_coma/"
+fold_name = "20170119_tip_tilt/"
 folder_name = fold_name
 
 ## centre and radius of interferogam. Done by eye, with the help of define_radius.py
 x0 = 550
 y0 = 484
-radius = int(310)
+radius = int(r_int_px)
 
 ## pack everything neatly in 1 vector against clutter
 constants = np.stack((px_size_sh, px_size_int, f_sh, r_int_px, r_sh_px, r_sh_m, j_max, wavelength, box_len, x0, y0, radius))
@@ -191,14 +192,15 @@ if hough_test == 'y':
 else:
     hough_test = False
 a_abb = np.zeros(j_max)
-a_abb[3] = 1 * wavelength
+a_abb[0] = 10
+a_abb[1] = 10
 ##a_abb[2] = 1 * wavelength
 ##a_abb[1] = -1 * wavelength
 
 ### other factors for phase extraction
 # miniminum height of peaks and distance between peaks in hough_transform
-min_height = 56
-look_ahead = 25
+min_height = 25
+look_ahead = 12
 k_I = 5 ##size of median window for Id_hat,use 1 for no filtering
 
 org_phase, delta_i, sh_spots, inter_0, flat_wf = PE.phase_extraction(constants, take_new_img = new_img, folder_name = fold_name, show_id_hat = hough_test, show_hough_peaks = hough_test, a_abb = a_abb, min_height = min_height, look_ahead = look_ahead, k_I = k_I, save_id_hat = True)
@@ -376,6 +378,14 @@ piston, inter_rms = opt.fmin(rms_piston, 0, args = (j_max, a_butt, N, Z_mat, ori
 ##    rms_vec[i] = rms_piston(mins[i], j_max, a_filt[:,i], N, Z_mat, orig, mask, flipint)
 
 ### Gather with SH patterns
+## re-load patterns due to zeros
+image_ref_mirror = np.array(PIL.Image.open(folder_name + "image_ref_mirror.tif"))
+zero_pos_dm = np.array(PIL.Image.open(folder_name + "zero_pos_dm.tif"))
+dist_image = np.array(PIL.Image.open(folder_name + "dist_image.tif"))
+flat_wf = np.array(PIL.Image.open(folder_name + "flat_wf.tif"))
+sh_spots = np.dstack((image_ref_mirror, zero_pos_dm, dist_image))        
+
+## start analysis of SH patterns
 zero_image = sh_spots[..., 1]
 zero_image_zeros = np.copy(sh_spots[..., 1])
 dist_image = sh_spots[..., 2]
@@ -403,7 +413,7 @@ aft_janss = time.time()
 print("All iterations Janssen took " + str(aft_janss - bf_janss) + " s")
 
 bf_lsq = time.time()
-vars_lsq, lsq_rms = opt.fmin(rms_lsq, vars_janss, args = lsq_args, maxiter = 2, full_output = True)[:2]
+vars_lsq, lsq_rms = opt.fmin(rms_lsq, vars_janss, args = lsq_args, maxiter = 1000, full_output = True)[:2]
 aft_lsq = time.time()
 print("1000 iterations LSQ took " + str(aft_lsq-bf_lsq) +" s")
 
@@ -440,10 +450,10 @@ pist_janss = vars_janss[0]#opt.fmin(rms_piston, 0, args = (j_max, np.real(a_jans
 ### plot results
 f, axes = plt.subplots(nrows = 1, ncols = 5, figsize = (4.98, 4.98/4.4), gridspec_kw={'width_ratios':[4, 4, 4, 4, 0.4]})#, 'height_ratios':[1,1,1,1,1]})
 titles = [r'original', r'Interferogram', r'LSQ', r'Janssen']
-interf = axes[0].imshow(np.ma.array(orig, mask = mask), vmin = 0, vmax = 1, cmap = 'bone', origin = 'lower')
-Zn.plot_interferogram(j_max, a_inter, piston = piston, ax = axes[1])
-Zn.plot_interferogram(j_max, a_lsq_opt, piston = pist_lsq, ax = axes[2], fliplr = True)
-Zn.plot_interferogram(j_max, a_janss_opt, piston = pist_janss, ax = axes[3], fliplr = True)
+interf = axes[0].imshow(np.ma.array(orig, mask = mask), vmin = 0, vmax = 1, cmap = 'bone', origin = 'lower', interpolation = 'none')
+Zn.imshow_interferogram(j_max, a_inter, N, piston = piston, ax = axes[1])
+Zn.imshow_interferogram(j_max, a_lsq_opt, N, piston = pist_lsq, ax = axes[2], fliplr = True)
+Zn.imshow_interferogram(j_max, a_janss_opt, N, piston = pist_janss, ax = axes[3], fliplr = True)
 ##axes[0].set_title('original')
 ##axes[1].set_title('from int')
 ##axes[2].set_title('from lsq')
@@ -458,23 +468,27 @@ cbar.ax.tick_params(labelsize=7)
 f.savefig(fold_name+'methods_compared_additional_filter.png', bbox_inches = 'tight', dpi = dpi_num)
 
 f2, ax2 = plt.subplots(nrows = 1, ncols = 1, figsize = (4.98, 4.98/4.4))
-sign_janss = np.sign(a_janss_opt[0])
-sign_int = np.sign(a_inter)
-a_inter *= (sign_janss * sign_int) ## make signs equal of janss and interferogram. if signs are equal, will result in 1, else -1.
-a_x = np.arange(1, j_max+1)
+##msv = np.argmax(np.abs(a_janss_opt)) #most_significant_value
+##sign_janss = np.sign(a_janss_opt[msv])
+##sign_int = np.sign(a_inter[msv])
+##a_inter *= (sign_janss * sign_int) ## make signs equal of janss and interferogram. if signs are equal, will result in 1, else -1.
+a_x = np.arange(2, j_max+2)
 ax2.plot(a_x, a_inter, 'sk', label = 'interferogram')
 ax2.plot(a_x, a_janss_opt, 'og', label = 'janssen')
 ax2.plot(a_x, a_lsq_opt, '2b', label = 'LSQ')
+ax2.set_xlim([0,31.5])
+min_a = np.min([np.min(a_inter), np.min(a_janss_opt), np.min(a_lsq_opt)])
+max_a = np.max([np.max(a_inter), np.max(a_janss_opt), np.max(a_lsq_opt)])
+ax2.set_ylim([1.6**(-np.sign(min_a)) *min_a, 1.6**(np.sign(max_a)) * max_a])
 ax2.legend(prop={'size':7}, loc = 'best')
-ax2.set_xlim([0,30.5])
 f2.savefig(fold_name+'zernike_coeff_compared_additional_filter.png', bbox_inches = 'tight', dpi = dpi_num)
 
 rms_dict = {'rms_inter':inter_rms,'rms_lsq':lsq_rms, 'rms_janss':janss_rms}
-vars_dict = {'vars_lsq':vars_lsq, 'vars_janss':vars_janss}
+vars_dict = {'vars_lsq':vars_lsq, 'vars_janss':vars_janss, 'pist_inter':piston}
 coeff_dict = {'coeff_inter':a_inter, 'coeff_lsq':a_lsq_opt, 'coeff_janss':a_janss_opt}
 np.save(folder_name + 'vars_dictionary.npy', vars_dict)
 np.save(folder_name + 'coeff_dictionary.npy', coeff_dict)
-np.save(folder_name + 'rms_dictionary_additional_filter.npy', rms_dict)
+json.dump(rms_dict, open(folder_name + "rms_dict.txt", 'w'))
 print(" rms interferogram: " + str(inter_rms) + ",\n rms LSQ: " + str(lsq_rms) + ",\n rms Janssen: " + str(janss_rms))
 
 ##

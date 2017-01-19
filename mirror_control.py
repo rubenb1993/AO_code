@@ -20,6 +20,13 @@ def filter_positions(inside, *args):
         new_positions.append(np.array(arg)[inside])
     return new_positions
 
+def filter_nans(*args):
+    """given vectors, filters out the NANs. Assumes that nans appear in the same place"""
+    new_positions = []
+    for arg in args:
+        new_positions.append(arg[~np.isnan(arg)])
+    return new_positions
+
 def set_displacement(u_dm, mirror):
     """linearizes the deformable mirror control.
     u_dm is a vector in the range (-1, 1) with the size (actuators,)
@@ -53,7 +60,7 @@ def set_up_cameras():
     if pixel_clock == 150.0:
         cam1.setProperty("cam","Pixel Clock",150)
         cam1.setProperty("cam", "PixelType", '8bit mono')
-        cam1.setProperty("cam","Exposure",0.0434)
+        cam1.setProperty("cam","Exposure",0.097)
         sh = cam1
 
         cam2=MMCorePy.CMMCore()
@@ -61,11 +68,11 @@ def set_up_cameras():
         cam2.initializeDevice("cam")
         cam2.setCameraDevice("cam")
         cam2.setProperty("cam","Pixel Clock", 43)
-        cam2.setProperty("cam","Exposure", 0.0668)
+        cam2.setProperty("cam","Exposure", 13.226)
         int_cam = cam2
     else:
         cam1.setProperty("cam","Pixel Clock", 43)
-        cam1.setProperty("cam","Exposure", 0.0668)
+        cam1.setProperty("cam","Exposure", 13.226)
         int_cam = cam1
 
         cam2=MMCorePy.CMMCore()
@@ -74,7 +81,7 @@ def set_up_cameras():
         cam2.setCameraDevice("cam")
         cam2.setProperty("cam","Pixel Clock", 150)
         cam2.setProperty("cam","PixelType", '8bit mono')
-        cam2.setProperty("cam","Exposure", 0.0434)
+        cam2.setProperty("cam","Exposure", 0.097)
         sh = cam2
     return sh, int_cam
 

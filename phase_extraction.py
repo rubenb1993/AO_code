@@ -147,7 +147,7 @@ def phase_extraction(constants, take_new_img = False, folder_name = "20161130_fi
         
         u_dm_flat = u_dm
         #V2D_inv = np.linalg.pinv(V2D)
-        v_abb = (f_sh/(r_sh_m * px_size_sh)) * np.linalg.lstsq(V2D, np.dot(G, a))[0]#np.dot(V2D_inv, np.dot(G, a))
+        v_abb = (f_sh * wavelength /(r_sh_m * px_size_sh * 2 * np.pi)) * np.linalg.lstsq(V2D, np.dot(G, a))[0]#np.dot(V2D_inv, np.dot(G, a))
         print(v_abb[4], v_abb[7])
         u_dm -= v_abb
 
@@ -157,16 +157,26 @@ def phase_extraction(constants, take_new_img = False, folder_name = "20161130_fi
             
         mc.set_displacement(u_dm, mirror)
 
-        raw_input("keep it covered!")
-        sh.snapImage()
-        dist_image = sh.getImage().astype('float')
-        PIL.Image.fromarray(dist_image).save(folder_name + "dist_image.tif")
-
-        raw_input("remove piece of paper")
+        raw_input("remove piece of paper and adjust")
         time.sleep(0.2)
         int_cam.snapImage()
         image_i0 = int_cam.getImage().astype(float)
         PIL.Image.fromarray(image_i0).save(folder_name + "interferogram_0.tif")
+
+        raw_input("re-cover ref mirror!")
+        sh.snapImage()
+        dist_image = sh.getImage().astype('float')
+        PIL.Image.fromarray(dist_image).save(folder_name + "dist_image.tif")
+
+        raw_input("cover DM for new mirror reference")
+        sh.snapImage()
+        image_ref_mirror = sh.getImage().astype(float)
+        PIL.Image.fromarray(image_ref_mirror).save(folder_name + "image_ref_mirror.tif")
+
+##        this would be a new zero_pos_dm, might be needed, but would be the same as image_ref_mirror
+##        sh.snapImage()
+##        zero_pos_dm = sh.getImage().astype(float)
+##        PIL.Image.fromarray(zero_pos_dm).save(folder_name + "zero_pos_dm.tif")
 
         raw_input("tip and tilt 1")
         time.sleep(1)

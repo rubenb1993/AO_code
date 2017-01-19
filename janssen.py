@@ -38,7 +38,7 @@ def cart2pol(x, y):
 def avg_complex_zernike(x_pos_norm, y_pos_norm, j_max, r_int_px, spot_size = 35):
     """Given the meshgrids for x and y, and given the maximum fringe order, complex zernike retursn
     an (len(x), len(y), j_max) sized matrix with values of the complex Zernike polynomial at the given points"""
-    half_len_box = spot_size/r_int_px
+    half_len_box = spot_size/float(r_int_px)
     box_px = 2*spot_size
     x_left = x_pos_norm - half_len_box
     x_right = x_pos_norm + half_len_box
@@ -125,6 +125,7 @@ def coeff(x_pos_zero, y_pos_zero, zero_image, dist_image, px_size, f, r_sh_m, j_
 def coeff_optimum(x_pos_flat, y_pos_flat, x_pos_norm, y_pos_norm, xx, yy, dist_image, image_control, px_size, f, r_sh_m, wavelength, j_max):
     # Gather centroids and slope
     x_pos_dist, y_pos_dist = Hm.centroid_positions(x_pos_flat, y_pos_flat, dist_image, xx, yy)
+    x_pos_dist, y_pos_dist = mc.filter_nans(x_pos_dist, y_pos_dist)
     dWdx, dWdy = Hm.centroid2slope(x_pos_dist, y_pos_dist, x_pos_flat, y_pos_flat, px_size, f, r_sh_m, wavelength)
 
     # Make Zernike matrix

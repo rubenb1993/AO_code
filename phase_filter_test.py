@@ -1,6 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import phase_unwrapping_test as pw
+import phase_extraction as PE
+import scipy.ndimage as ndimage
 
 def filter_wrapped_phase_med(image, k):
     ny, nx = image.shape
@@ -123,12 +125,28 @@ def butter_filter(image, n, f0):
     phase_filt = np.arctan2(sin_filt, cos_filt)
     return phase_filt
 
-    
+## Given paramters for centroid gathering
+px_size_sh = 5.2e-6     # width of pixels
+px_size_int = 5.2e-6
+f_sh = 17.6e-3            # focal length
+r_int_px = 310
+r_sh_px = 320
+r_sh_m = r_sh_px * px_size_int
+j_max= 30         # maximum fringe order
+wavelength = 632e-9 #[m]
+box_len = 35.0 #half width of subaperture box in px    
+
+x0 = 550
+y0 = 484
+radius = int(310)
+
+constants = px_size_sh, px_size_int, f_sh, r_int_px, r_sh_px, r_sh_m, j_max, wavelength, box_len, x0, y0, radius
 
 x,y  = np.linspace(-1, 1, 500), np.linspace(-1, 1, 500)
 xx, yy = np.meshgrid(x, y)
-
-phase = np.load("20170112_1_defocus/org_phase.npy")
+folder_name = "20161213_new_inters/"
+phase, delta_i, sh_spots, image_i0, flat_wf = PE.phase_extraction(constants, folder_name = folder_name, show_id_hat = False, show_hough_peaks = False, min_height = 50)
+#phase = np.load("20170112_1_defocus/org_phase.npy")
 phase_inspect = phase[...,0]
 
 ## butter filter
@@ -140,9 +158,11 @@ dif_x = (nx_pad - int(nx))/2
 phase_filt = butter_filter(np.lib.pad(phase_inspect, dif_x, 'reflect'), 2, 15)
 phase_filt = phase_filt[dif_x:nx_pad - dif_x, dif_x:nx_pad - dif_x]
 
-
-phase_avg = np.load("20170113_test_phase/phase_avg.npy") 
-phase_med = np.load("20170113_test_phase/phase_med.npy") 
+phase_inspect_med = ndimage.median_filter(phase_inspect, 5)
+phase_med_filt = butter_filter(np.lib.pad(phase_inspect_med, dif_x, 'reflect'),2, 15)
+phase_med_filt = phase_med_filt[dif_x:nx_pad - dif_x, dif_x:nx_pad - dif_x]
+#phase_avg = pw.filter_wrapped_phase(phase_inspect, 19)#np.load("20170113_test_phase/phase_avg.npy") 
+#phase_med = filter_wrapped_phase_med(phase_inspect, 19)#np.load("20170113_test_phase/phase_med.npy") 
 
 
 
@@ -151,17 +171,17 @@ ax[0,0].imshow(phase_inspect)
 ax[0,0].set_title(r'Original')
 ax[0,0].set_ylabel(r'Phase')
 ax[1,0].set_ylabel(r'Cross section Phase')
-ax[0,1].imshow(phase_avg)
-ax[0,1].set_title(r'$19 \times 19$ average')
-ax[0,2].imshow(phase_med)
-ax[0,2].set_title(r'$19 \times 19$ median')
-ax[0,3].imshow(phase_filt)
-ax[0,3].set_title(r'Butter ($f_0 = 15, n = 2$)')
+ax[0,1].imshow(phase_inspect_med)
+ax[0,2].set_title(r'Butter ($f_0 = 15, n = 2$)')
+ax[0,2].imshow(phase_filt)
+ax[0,1].set_title(r'$5 \times 5$ median $\hat{I}_D$')
+ax[0,3].imshow(phase_med_filt)
+ax[0,3].set_title(r'median $\hat{I}_D$ and Butter')
 
-ax[1,0].plot(phase_inspect[310, :])
-ax[1,1].plot(phase_avg[310, :])
-ax[1,2].plot(phase_med[310, :])
-ax[1,3].plot(phase_filt[310, :])
+ax[1,0].plot(phase_inspect[160, :])
+ax[1,1].plot(phase_inspect_med[160, :])
+ax[1,2].plot(phase_filt[160, :])
+ax[1,3].plot(phase_med_filt[160, :])
 
 
 plt.show()
