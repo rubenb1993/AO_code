@@ -61,7 +61,7 @@ def rms_lsq(variables, *args):
     a = np.linalg.lstsq(G,s)[0]
 
     orig = np.ma.array(orig, mask = mask)
-    inter = np.ma.array(Zn.int_for_comp(j_max, a, N, variables[0], Z_mat, fliplr = True), mask = mask)
+    inter = np.ma.array(Zn.int_for_comp(j_max, a, N, variables[0], Z_mat, fliplr = False), mask = mask)
     rms = np.sqrt(np.sum((inter - orig)**2)/N**2)
     return rms
 
@@ -137,7 +137,7 @@ def rms_janss(variables, *args):
     a_janss = np.real(a_check)
 
     orig = np.ma.array(orig, mask = mask)
-    inter = np.ma.array(Zn.int_for_comp(j_max, a_janss, N, variables[0], Z_mat, fliplr = True), mask = mask)
+    inter = np.ma.array(Zn.int_for_comp(j_max, a_janss, N, variables[0], Z_mat, fliplr = False), mask = mask)
     rms = np.sqrt(np.sum((inter - orig)**2)/N**2)
     return rms
 
@@ -161,7 +161,7 @@ dpi_num = 600
 int_im_size = (4.98, 3.07)
 int_im_size_23 = (0.66 * 4.98, 3.07)
 int_im_size_13 = (0.33 * 4.98, 3.07)
-fold_name = "20170119_tip_tilt/"
+fold_name = "20170120_flip_test/"
 folder_name = fold_name
 
 ## centre and radius of interferogam. Done by eye, with the help of define_radius.py
@@ -199,9 +199,9 @@ a_abb[1] = 10
 
 ### other factors for phase extraction
 # miniminum height of peaks and distance between peaks in hough_transform
-min_height = 25
+min_height = 26
 look_ahead = 12
-k_I = 5 ##size of median window for Id_hat,use 1 for no filtering
+k_I = 1 ##size of median window for Id_hat,use 1 for no filtering
 
 org_phase, delta_i, sh_spots, inter_0, flat_wf = PE.phase_extraction(constants, take_new_img = new_img, folder_name = fold_name, show_id_hat = hough_test, show_hough_peaks = hough_test, a_abb = a_abb, min_height = min_height, look_ahead = look_ahead, k_I = k_I, save_id_hat = True)
 Un_sol = np.triu_indices(delta_i.shape[-1], k = 1) ## delta i has the shape of the amount of difference interferograms, while org phase has all possible combinations
@@ -267,7 +267,10 @@ for i in range(len(j)):
 a_butt = np.linalg.lstsq(Zernike_2d, but_med_flat)[0]
 a_inter= a_butt
 #a_inter *= wavelength
-orig = np.ma.array(inter_0[y0-radius:y0+radius, x0-radius:x0+radius], mask = mask)
+[ny_i, nx_i] = inter_0.shape
+flipped_y0 = y0
+flipped_x0 = nx_i - x0
+orig = np.ma.array(inter_0[flipped_y0-radius:flipped_y0+radius, flipped_x0-radius:flipped_x0+radius], mask = mask)
 
 ##
 ##f, ax = plt.subplots(2,2)
@@ -358,7 +361,7 @@ Z_mat = Zn.Zernike_xy(xi, yi, power_mat, j_range)
 ##Z = np.zeros((N, N, len(pistons), a_filt.shape[-1]))
 ##orig /= np.max(orig) * 0.9
 ##orig[orig > 1] = 1
-orig /= np.max(orig)
+orig /= orig.max()
 
 ##mins = np.zeros(a_filt.shape[-1])
 ##f, ax = plt.subplots(2, 5)
@@ -408,12 +411,12 @@ lsq_args = (wavelength, j_max, f_sh, px_size_sh, dist_image, image_control, y_po
 janss_args = (x_pos_zero_f, y_pos_zero_f, image_control, dist_image, px_size_sh, f_sh, j_max, wavelength, xx, yy, N, orig, mask, Z_mat, box_len)
 
 bf_janss = time.time()
-vars_janss, janss_rms = opt.fmin(rms_janss, [piston, centre[0], centre[1], r_sh_px], args = janss_args, full_output = True, maxiter = 1000)[:2]
+vars_janss, janss_rms = opt.fmin(rms_janss, [piston, centre[0], centre[1], r_sh_px], args = janss_args, full_output = True, maxiter = 2000)[:2]
 aft_janss = time.time()
 print("All iterations Janssen took " + str(aft_janss - bf_janss) + " s")
 
 bf_lsq = time.time()
-vars_lsq, lsq_rms = opt.fmin(rms_lsq, vars_janss, args = lsq_args, maxiter = 1000, full_output = True)[:2]
+vars_lsq, lsq_rms = opt.fmin(rms_lsq, vars_janss, args = lsq_args, maxiter = 2000, full_output = True)[:2]
 aft_lsq = time.time()
 print("1000 iterations LSQ took " + str(aft_lsq-bf_lsq) +" s")
 
@@ -452,8 +455,8 @@ f, axes = plt.subplots(nrows = 1, ncols = 5, figsize = (4.98, 4.98/4.4), gridspe
 titles = [r'original', r'Interferogram', r'LSQ', r'Janssen']
 interf = axes[0].imshow(np.ma.array(orig, mask = mask), vmin = 0, vmax = 1, cmap = 'bone', origin = 'lower', interpolation = 'none')
 Zn.imshow_interferogram(j_max, a_inter, N, piston = piston, ax = axes[1])
-Zn.imshow_interferogram(j_max, a_lsq_opt, N, piston = pist_lsq, ax = axes[2], fliplr = True)
-Zn.imshow_interferogram(j_max, a_janss_opt, N, piston = pist_janss, ax = axes[3], fliplr = True)
+Zn.imshow_interferogram(j_max, a_lsq_opt, N, piston = pist_lsq, ax = axes[2], fliplr = False)
+Zn.imshow_interferogram(j_max, a_janss_opt, N, piston = pist_janss, ax = axes[3], fliplr = False)
 ##axes[0].set_title('original')
 ##axes[1].set_title('from int')
 ##axes[2].set_title('from lsq')
@@ -465,6 +468,7 @@ for i in range(4):
     axes[i].set_title(titles[i], fontsize = 9)
 cbar = plt.colorbar(interf, cax = axes[-1], ticks = [0.0, 0.25, 0.5, 0.75, 1.0])
 cbar.ax.tick_params(labelsize=7)
+cbar.ax.set_ylabel("Normalized Intensity", fontsize = 8)
 f.savefig(fold_name+'methods_compared_additional_filter.png', bbox_inches = 'tight', dpi = dpi_num)
 
 f2, ax2 = plt.subplots(nrows = 1, ncols = 1, figsize = (4.98, 4.98/4.4))

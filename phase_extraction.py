@@ -43,7 +43,7 @@ def hough_numpy(img, x, y):
     rhos = np.linspace(-diag_len, diag_len, 2.0 * diag_len)  # x-axis for plot with hough transform
     
     # pre-compute angles
-    thetas = np.linspace(0, 0.6 * np.pi, 200)
+    thetas = np.linspace(0.5 * np.pi, np.pi, 200)
     cos_t = np.cos(thetas)
     sin_t = np.sin(thetas)
     num_thetas = len(thetas)
@@ -220,6 +220,10 @@ def phase_extraction(constants, take_new_img = False, folder_name = "20161130_fi
 
     sh_spots = np.dstack((image_ref_mirror, zero_pos_dm, dist_image))        
     interferograms = np.dstack((image_i0, image_i1, image_i2, image_i3, image_i4))
+    flip = raw_input("flip interferograms?")
+    if flip == 'y':
+        interferograms = np.fliplr(interferograms)
+        image_i0 = np.fliplr(image_i0)
     indices_id = np.arange(1, interferograms.shape[-1])
     id_shape = list(interferograms.shape[0:2])
     id_shape.append(interferograms.shape[-1] -1)
@@ -236,8 +240,11 @@ def phase_extraction(constants, take_new_img = False, folder_name = "20161130_fi
 
     Id_int = np.zeros((2*radius, 2*radius, Id_tot.shape[-1]))
     Id_zeros = np.zeros(Id_int.shape, dtype = float)
+    [ny, nx] = interferograms[...,0].shape
+    flipped_y0 = y0
+    flipped_x0 = nx - x0
 
-    Id_int = Id_tot[y0-radius:y0+radius, x0-radius:x0+radius, :]
+    Id_int = Id_tot[flipped_y0-radius:flipped_y0+radius, flipped_x0-radius:flipped_x0+radius, :]
     zeros_i = np.abs(Id_int) <= 1
     Id_zeros[zeros_i] = 1
 

@@ -7,7 +7,8 @@ import matplotlib.pyplot as plt
 from matplotlib import cm
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 import scipy.special as spec
-
+from mpl_toolkits.mplot3d import Axes3D
+import matplotlib.colors as colors
 
 def cart2pol(x, y):
     "returns polar coordinates given x and y"
@@ -292,7 +293,8 @@ def complex_zernike_int(j_max, x, y):
 def plot_zernike(j_max, a, ax= None, wavelength = 632.8e-9, cmap = cm.jet, savefigure = False, title = 'zernike_plot', fliplr = False,**kwargs):
 ### plot zernikes according to coefficients
     if ax is None:
-        ax = plt.gca()
+        fig = plt.figure()
+        ax = fig.add_subplot(111, projection='3d')
     xi, yi = np.linspace(-1, 1, 300), np.linspace(-1, 1, 300)
     xi, yi = np.meshgrid(xi, yi)
     xn = np.ma.masked_where(xi**2 + yi**2 >= 1, xi)
@@ -304,22 +306,28 @@ def plot_zernike(j_max, a, ax= None, wavelength = 632.8e-9, cmap = cm.jet, savef
     Z = np.sum(a * Z_mat, axis=2)
     #for jj in range(j_max):
     #    Z += a[jj] * Zernike_xy(xi, yi, power_mat, jj+2)
-    Z /= wavelength
-    Zn = np.ma.masked_where(xi**2 + yi**2 >=1, Z)
-    if 'v' in kwargs:
-        levels = kwargs['v']
-    else:
-        levels = np.linspace(np.min(Zn), np.max(Zn))
-    if fliplr:
-        Zn = np.fliplr(Zn)
+    #Z /= wavelength
+    #Zn = np.ma.masked_where(xi**2 + yi**2 >=1, Z)
+    outside = np.where(xi**2 + yi**2 >=1)
+    inside= np.where(xi**2 + yi**2 < 1)
+    Z[outside] = np.nan
+    lev = np.linspace(-10, 10)
+    norml = colors.BoundaryNorm(lev, 256)
+##    if 'v' in kwargs:
+##        levels = kwargs['v']
+##    else:
+##        levels = np.linspace(np.min(Zn), np.max(Zn))
+##    if fliplr:
+##        Zn = np.fliplr(Zn)
 
     #fig = plt.figure(figsize = plt.figaspect(1.))
-    plotje = ax.contourf(xn, yn, Zn, cmap = cmap, linewidth = 0, levels = levels)
-    divider = make_axes_locatable(ax)
-    cax = divider.append_axes("right", size="5%", pad=0.1)
-    cbar = plt.colorbar(plotje, cax=cax)
+    plotje = ax.plot_surface(xi, yi, Z, cmap = 'jet', norm = norml)
+    ax.axis('off')
+##    divider = make_axes_locatable(ax)
+##    cax = divider.append_axes("right", size="5%", pad=0.1)
+##    cbar = plt.colorbar(plotje, cax=cax)
     if savefigure:
-        plt.savefig(title + '.png', bbox_inches='tight')
+        plt.savefig(folder_name + title + '.png', bbox_inches='tight', dpi = 600)
     return plotje
 
 def plot_interferogram(j_max, a, piston = 0, ax = None, f = None, wantcbar = False, cmap = 'bone', wavelength = 632.8e-9, fliplr = False, savefigure = False, title = 'Interferogram according to a', **kwargs):
