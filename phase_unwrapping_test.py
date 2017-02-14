@@ -416,7 +416,19 @@ def butter_filter(image, n, f0):
     phase_filt = np.arctan2(sin_filt, cos_filt)
     return phase_filt
 
-
+def butter_filter_unwrapped(image, n, f0):
+    [ny, nx] = image.shape
+    dx = 2.0/nx
+    dy = 2.0/nx
+    dfx = 0.5
+    dfy = 0.5
+    fx = np.arange(-0.5/dx, 0.5/dx, dfx)
+    fy = np.arange(-0.5/dy, 0.5/dy, dfy)
+    FX, FY = np.meshgrid(fx, fy)
+    shift = np.exp(-2*np.pi*1j*(FX+FY))
+    butt_filt = 1/(1 + ( np.sqrt(FX**2 + FY**2)/f0)**(2*n))
+    ft_img = shift * np.fft.fftshift(np.fft.fft2(image))
+    return np.real(np.fft.ifftshift(np.fft.ifft2(butt_filt * ft_img))/ shift)
     
 def phase_derivative_var_map(image, k):
     dx_phase = delta_x(image)

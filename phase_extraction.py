@@ -100,7 +100,7 @@ def weight_thicken(indices, weight_matrix, border = 10):
     weight_matrix[coords[0], coords[1] +1] = 0
     return weight_matrix
 
-def phase_extraction(constants, take_new_img = False, folder_name = "20161130_five_inter_test/", show_id_hat = False, show_hough_peaks = False, a_abb = np.zeros(10), min_height = 80, look_ahead = 15, k_I = 5, save_id_hat = True):
+def phase_extraction(constants, take_new_img = False, folder_name = "20161130_five_inter_test/", show_id_hat = False, show_hough_peaks = False, a_abb = np.zeros(10), min_height = 80, look_ahead = 15, k_I = 5, save_id_hat = True, index = 0):
     px_size_sh, px_size_int, f_sh, r_int_px, r_sh_px, r_sh_m, j_max, wavelength, box_len, x0, y0, radius = constants
     x0, y0, radius = int(x0), int(y0), int(radius)
     if take_new_img == True:
@@ -136,20 +136,25 @@ def phase_extraction(constants, take_new_img = False, folder_name = "20161130_fi
         power_mat = Zn.Zernike_power_mat(j_max+2)
         G = LSQ.matrix_avg_gradient(x_pos_norm_f, y_pos_norm_f, j_max, r_sh_px, power_mat)
 
-        if a_abb.all(0):
-            a = np.zeros(j_max)
-            ind = np.array([4])
-            #a[ind] = 0.15 * wavelength
-            a[ind] = 1.5 * wavelength
-        else:
-            a = a_abb
+        abber = raw_input("introduce zernikes?")
+        if abber == 'y':
+            if a_abb.all(0):
+                a = np.zeros(j_max)
+                ind = np.array([4])
+                #a[ind] = 0.15 * wavelength
+                a[ind] = 1.5 
+            else:
+                a = a_abb
 
-        
-        u_dm_flat = u_dm
-        #V2D_inv = np.linalg.pinv(V2D)
-        v_abb = (f_sh * wavelength /(r_sh_m * px_size_sh * 2 * np.pi)) * np.linalg.lstsq(V2D, np.dot(G, a))[0]#np.dot(V2D_inv, np.dot(G, a))
-        print(v_abb[4], v_abb[7])
-        u_dm -= v_abb
+            
+            u_dm_flat = u_dm
+            #V2D_inv = np.linalg.pinv(V2D)
+            v_abb = (f_sh * wavelength /(r_sh_m * px_size_sh * 2 * np.pi)) * np.linalg.lstsq(V2D, np.dot(G, a))[0]#np.dot(V2D_inv, np.dot(G, a))
+            print(v_abb[4], v_abb[7])
+            u_dm -= v_abb
+        else:
+            
+            u_dm[index] = -1 * np.sign(u_dm[index])
 
         if np.any(np.abs(u_dm) > 1.0):
             print("maximum deflection of mirror reached")

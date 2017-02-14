@@ -77,12 +77,13 @@ def coeff(x_pos_zero, y_pos_zero, zero_image, dist_image, px_size, f, r_sh_m, j_
     # Gather centroids and slope
     x_pos_dist, y_pos_dist = Hm.centroid_positions(x_pos_flat, y_pos_flat, dist_image, xx, yy)
     dWdx, dWdy = Hm.centroid2slope(x_pos_dist, y_pos_dist, x_pos_flat, y_pos_flat, px_size, f, r_sh_m, wavelength)
-
+    r_int_px = r_sh_m/px_size
+    
     # Make Zernike matrix
     kmax = np.power(np.ceil(np.sqrt(j_max)),2) #estimation of maximum fringe number
     n, m = Zn.Zernike_j_2_nm(np.array(range(1, int(kmax)+1))) #find n and m pairs for maximum fringe number
     Kmax = np.max(Zn.Zernike_nm_2_j(n+1, np.abs(m)+1)) #find highest order of j for which beta is needed
-    Z_mat = Zn.complex_zernike(Kmax, x_pos_norm, y_pos_norm)
+    Z_mat = avg_complex_zernike(x_pos_norm, y_pos_norm, Kmax, r_int_px)
 
     #Invert and solve for beta
     dW_plus = dWdx + 1j * dWdy
@@ -120,19 +121,20 @@ def coeff(x_pos_zero, y_pos_zero, zero_image, dist_image, px_size, f, r_sh_m, j_
             a_check[jj-2] = (1.0/np.sqrt(2*n+2)) * (a[j_plus - 1] - a[jj-1]) * 1j
         else:
             a_check[jj-2] = (1.0/np.sqrt(n+1)) * a[jj-1]
-    return a_check  
+    return np.real(a_check)  
 
 def coeff_optimum(x_pos_flat, y_pos_flat, x_pos_norm, y_pos_norm, xx, yy, dist_image, image_control, px_size, f, r_sh_m, wavelength, j_max):
     # Gather centroids and slope
     x_pos_dist, y_pos_dist = Hm.centroid_positions(x_pos_flat, y_pos_flat, dist_image, xx, yy)
     x_pos_dist, y_pos_dist = mc.filter_nans(x_pos_dist, y_pos_dist)
     dWdx, dWdy = Hm.centroid2slope(x_pos_dist, y_pos_dist, x_pos_flat, y_pos_flat, px_size, f, r_sh_m, wavelength)
+    r_int_px = r_sh_m / px_size
 
     # Make Zernike matrix
     kmax = np.power(np.ceil(np.sqrt(j_max)),2) #estimation of maximum fringe number
     n, m = Zn.Zernike_j_2_nm(np.array(range(1, int(kmax)+1))) #find n and m pairs for maximum fringe number
     Kmax = np.max(Zn.Zernike_nm_2_j(n+1, np.abs(m)+1)) #find highest order of j for which beta is needed
-    Z_mat = Zn.complex_zernike(Kmax, x_pos_norm, y_pos_norm)
+    Z_mat = avg_complex_zernike(x_pos_norm, y_pos_norm, Kmax, r_int_px)
 
     #Invert and solve for beta
     dW_plus = dWdx + 1j * dWdy

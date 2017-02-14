@@ -161,7 +161,8 @@ dpi_num = 600
 int_im_size = (4.98, 3.07)
 int_im_size_23 = (0.66 * 4.98, 3.07)
 int_im_size_13 = (0.33 * 4.98, 3.07)
-fold_name = "20170120_flip_test/"
+index = 8
+fold_name = "20170126_single_actuators/" + str(index) + "/"
 folder_name = fold_name
 
 ## centre and radius of interferogam. Done by eye, with the help of define_radius.py
@@ -192,18 +193,18 @@ if hough_test == 'y':
 else:
     hough_test = False
 a_abb = np.zeros(j_max)
-a_abb[0] = 10
-a_abb[1] = 10
+a_abb[7] = 2
+##a_abb[1] = 10
 ##a_abb[2] = 1 * wavelength
 ##a_abb[1] = -1 * wavelength
 
 ### other factors for phase extraction
 # miniminum height of peaks and distance between peaks in hough_transform
-min_height = 26
-look_ahead = 12
+min_height = 29
+look_ahead = 10
 k_I = 1 ##size of median window for Id_hat,use 1 for no filtering
 
-org_phase, delta_i, sh_spots, inter_0, flat_wf = PE.phase_extraction(constants, take_new_img = new_img, folder_name = fold_name, show_id_hat = hough_test, show_hough_peaks = hough_test, a_abb = a_abb, min_height = min_height, look_ahead = look_ahead, k_I = k_I, save_id_hat = True)
+org_phase, delta_i, sh_spots, inter_0, flat_wf = PE.phase_extraction(constants, take_new_img = new_img, folder_name = fold_name, show_id_hat = hough_test, show_hough_peaks = hough_test, a_abb = a_abb, min_height = min_height, look_ahead = look_ahead, k_I = k_I, save_id_hat = True, index = index)
 Un_sol = np.triu_indices(delta_i.shape[-1], k = 1) ## delta i has the shape of the amount of difference interferograms, while org phase has all possible combinations
 org_unwr = np.zeros(org_phase.shape)
 np.save(folder_name + "org_phase.npy", org_phase)
@@ -235,24 +236,13 @@ np.save(folder_name + "filtered_phase.npy", butter_unwr)
 ## make mask and find mean within mask
 mask = [np.sqrt((xx_alg) ** 2 + (yy_alg) ** 2) >= 1]
 mask_tile = np.tile(mask, (org_phase.shape[-1],1,1)).T
-#org_mask = np.ma.array(org_unwr, mask = mask_tile)
 butter_mask = np.ma.array(butter_unwr, mask = mask_tile)
-#mean_unwr = org_mask.mean(axis=(0,1))
-#org_unwr -= mean_unwr
 mean_butt = butter_mask.mean(axis=(0,1))
 butter_unwr -= mean_butt
 
-##f, ax = plt.subplots(1,6)
-##for i in range(6):
-##    ax[i].imshow(np.ma.array(org_unwr[...,i], mask = mask), vmin = -15, vmax = 15)
-##    
-##plt.show()
-
 ## smoothing interferogram due to median
-#org_med = np.median(org_unwr, axis = 2)
 but_med = np.median(butter_unwr, axis = 2)
 xy_inside = np.where(np.sqrt(xx_alg**2 + yy_alg**2) <= 1)
-#org_med_flat = org_med[xy_inside]
 but_med_flat = but_med[xy_inside]
 x_in, y_in = xx_alg[xy_inside], yy_alg[xy_inside]
 
@@ -271,84 +261,6 @@ a_inter= a_butt
 flipped_y0 = y0
 flipped_x0 = nx_i - x0
 orig = np.ma.array(inter_0[flipped_y0-radius:flipped_y0+radius, flipped_x0-radius:flipped_x0+radius], mask = mask)
-
-##
-##f, ax = plt.subplots(2,2)
-##ax[0,0].imshow(np.ma.array(orig, mask = mask), cmap = 'bone', origin = 'lower')
-##ax[0,0].set_title('original')
-##ax[1,0].set_title('median')
-##ax[1,1].set_title('fitted')
-##ax[0,1].set_title('from fit')
-##ax[1,0].imshow(np.ma.array(org_med, mask = mask), cmap = 'jet', origin = 'lower')
-##Zn.plot_zernike(j_max, a_inter, ax = ax[1,1])
-##Zn.plot_interferogram(j_max, a_inter, ax = ax[0,1])
-##
-##for axes in ax.reshape(-1):
-##    axes.set(adjustable='box-forced', aspect='equal')
-
-### using only 1 phase, but smoothing
-##phase = org_phase[..., 0]
-##shape = list(org_phase.shape)
-##shape[2] = 10
-##filt_phase = np.zeros(org_phase.shape)
-##save_phase = np.zeros(shape)
-##unwr_phase = np.zeros(org_phase.shape)
-##a_filt = np.zeros((j_max, shape[2]))
-##
-##org_mask = np.ma.array(org_unwr, mask = mask_tile)
-##mean_unwr = org_mask.mean(axis=(0,1))
-
-
-##filt_yn = raw_input("do you want to filter the phase?")
-##if filt_yn == 'y':
-##    f, axarr = plt.subplots(3,shape[2])
-##    v = np.linspace(-10, 20)
-##
-##    for i in range(shape[2]):
-##        print("filtering with a " + str(3+ 2*i) + " x " + str(3 + 2*i) + " filter")
-##        for k in range(org_phase.shape[-1]):
-##            print(k)
-##            filt_phase[..., k] = pw.filter_wrapped_phase(org_phase[..., k], 3 + 2*i)
-##            unwr_phase[..., k] = pw.unwrap_phase_dct(filt_phase[..., k], xx_alg, yy_alg, ii, jj, N, N)
-##            unwr_phase[..., k] -= delta_i[..., Un_sol[0][k]]
-##
-##        unwr_mask = np.ma.array(unwr_phase, mask = mask_tile)
-##        mean_unwr = unwr_mask.mean(axis = (0, 1))
-##        unwr_phase -= mean_unwr
-##        
-##        fit_phase = np.median(unwr_phase, axis=2)
-##        save_phase[...,i] = fit_phase
-##        fit_phase = save_phase[..., i]
-##        
-##        a_filt[:, i] = np.linalg.lstsq(Zernike_2d, fit_phase[xy_inside])[0]
-##        #a_filt[:, i] *= wavelength
-##    np.save(fold_name + "coefficients", a_filt)
-##    np.save(fold_name + "filtered_phases", save_phase)
-##else:
-##    save_phase = np.load(fold_name + "filtered_phases.npy")
-##    a_filt = np.load(fold_name + "coefficients.npy")
-##
-##for i in range(shape[2]):
-##    fit_phase = save_phase[...,i]
-##    a_filt[:, i] = np.linalg.lstsq(Zernike_2d, fit_phase[xy_inside])[0]
-##    a_filt[:, i] *= wavelength
-##    f, ax = plt.subplots(2,2)
-##    ax[0,0].imshow(np.ma.array(inter_0[y0-radius:y0+radius, x0-radius:x0+radius], mask = mask), cmap = 'bone', origin = 'lower')
-##    ax[0,0].set_title('original')
-##    ax[1,0].set_title('median ' + str(3 + 2*i) + " x " + str(3  + 2*i))
-##    ax[1,1].set_title('fitted')
-##    ax[0,1].set_title('from fit')
-##    ax[1,0].imshow(np.ma.array(save_phase[..., i], mask = mask), cmap = 'jet', origin = 'lower', vmin = -10, vmax = 20)
-##    Zn.plot_zernike(j_max, a_filt[:, i], ax = ax[1,1], v = v)
-##    Zn.plot_interferogram(j_max, a_filt[:, i], ax = ax[0,1])
-##    for axes in ax.reshape(-1):
-##        axes.set(adjustable='box-forced', aspect='equal')
-
-
-    
-    #axarr[0, i].imshow(np.ma.array(fit_phase, mask= mask), vmin = -15, vmax = 15, origin = 'lower')
-    #Zn.plot_zernike(j_max, a_filt[:,i], ax = axarr[1,i], v=v)
-    #Zn.plot_interferogram(j_max, a_filt[:,i], ax= axarr[2,i])
 
 
     
@@ -372,13 +284,6 @@ flipint = False
 print("optimizing interferogram")
 #piston, inter_rms = opt.fmin(rms_piston, 0, args = (j_max, a_inter, N, Z_mat, orig, mask, flipint), full_output = True)[:2]
 piston, inter_rms = opt.fmin(rms_piston, 0, args = (j_max, a_butt, N, Z_mat, orig, mask, flipint), full_output = True)[:2]
-##for i in range(len(mins)):
-##    mins[i] = opt.fmin(rms_piston, 0, args = (j_max, a_filt[:,i], N, Z_mat, orig, mask, flipint))
-##    ax[indexes[0][i], indexes[1][i]].imshow(orig - np.ma.array(Zn.int_for_comp(j_max, a_filt[:,i], N, mins[i], Z_mat), mask = mask), vmin = -1, vmax = 0.25, origin = 'lower')
-##
-##rms_vec = np.zeros(len(mins))
-##for i in range(len(mins)):
-##    rms_vec[i] = rms_piston(mins[i], j_max, a_filt[:,i], N, Z_mat, orig, mask, flipint)
 
 ### Gather with SH patterns
 ## re-load patterns due to zeros
