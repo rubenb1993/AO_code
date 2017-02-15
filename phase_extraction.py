@@ -28,6 +28,8 @@ from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.colors as cm
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from matplotlib import rc
+import scipy.ndimage as ndimage
+
 
 # Define font for figures
 rc('font', **{'family': 'serif', 'serif': ['Computer Modern']})
@@ -41,7 +43,7 @@ def hough_numpy(img, x, y):
     rhos = np.linspace(-diag_len, diag_len, 2.0 * diag_len)  # x-axis for plot with hough transform
     
     # pre-compute angles
-    thetas = np.linspace(0, 0.6 * np.pi, 200)
+    thetas = np.linspace(0.5 * np.pi, np.pi, 200)
     cos_t = np.cos(thetas)
     sin_t = np.sin(thetas)
     num_thetas = len(thetas)
@@ -98,7 +100,7 @@ def weight_thicken(indices, weight_matrix, border = 10):
     weight_matrix[coords[0], coords[1] +1] = 0
     return weight_matrix
 
-def phase_extraction(constants, take_new_img = False, folder_name = "20161130_five_inter_test/", show_id_hat = False, show_hough_peaks = False, a_abb = np.zeros(10), min_height = 80, look_ahead = 15):
+def phase_extraction(constants, take_new_img = False, folder_name = "20161130_five_inter_test/", show_id_hat = False, show_hough_peaks = False, a_abb = np.zeros(10), min_height = 80, look_ahead = 15, k_I = 5, save_id_hat = True, index = 0):
     px_size_sh, px_size_int, f_sh, r_int_px, r_sh_px, r_sh_m, j_max, wavelength, box_len, x0, y0, radius = constants
     x0, y0, radius = int(x0), int(y0), int(radius)
     if take_new_img == True:
@@ -123,7 +125,7 @@ def phase_extraction(constants, take_new_img = False, folder_name = "20161130_fi
         PIL.Image.fromarray(zero_pos_dm).save(folder_name + "zero_pos_dm.tif")
 
         ### make flat wavefront
-        u_dm, x_pos_norm_f, y_pos_norm_f, x_pos_zero_f, y_pos_zero_f, V2D = mc.flat_wavefront(u_dm, zero_pos_dm, image_ref_mirror, r_sh_px, r_int_px, sh, mirror, show_accepted_spots = True)
+        u_dm, x_pos_norm_f, y_pos_norm_f, x_pos_zero_f, y_pos_zero_f, V2D = mc.flat_wavefront(u_dm, zero_pos_dm, image_ref_mirror, r_sh_px, r_int_px, sh, mirror, show_accepted_spots = False)
 
         raw_input("remove paper for flat wavefront")
         int_cam.snapImage()
@@ -134,19 +136,25 @@ def phase_extraction(constants, take_new_img = False, folder_name = "20161130_fi
         power_mat = Zn.Zernike_power_mat(j_max+2)
         G = LSQ.matrix_avg_gradient(x_pos_norm_f, y_pos_norm_f, j_max, r_sh_px, power_mat)
 
-        if a_abb.all(0):
-            a = np.zeros(j_max)
-            ind = np.array([4])
-            #a[ind] = 0.15 * wavelength
-            a[ind] = 1.5 * wavelength
-        else:
-            a = a_abb
+        abber = raw_input("introduce zernikes?")
+        if abber == 'y':
+            if a_abb.all(0):
+                a = np.zeros(j_max)
+                ind = np.array([4])
+                #a[ind] = 0.15 * wavelength
+                a[ind] = 1.5 
+            else:
+                a = a_abb
 
-        
-        u_dm_flat = u_dm
-        #V2D_inv = np.linalg.pinv(V2D)
-        v_abb = (f_sh/(r_sh_m * px_size_sh)) * np.linalg.lstsq(V2D, np.dot(G, a))[0]#np.dot(V2D_inv, np.dot(G, a))
-        u_dm -= v_abb
+            
+            u_dm_flat = u_dm
+            #V2D_inv = np.linalg.pinv(V2D)
+            v_abb = (f_sh * wavelength /(r_sh_m * px_size_sh * 2 * np.pi)) * np.linalg.lstsq(V2D, np.dot(G, a))[0]#np.dot(V2D_inv, np.dot(G, a))
+            print(v_abb[4], v_abb[7])
+            u_dm -= v_abb
+        else:
+            
+            u_dm[index] = -1 * np.sign(u_dm[index])
 
         if np.any(np.abs(u_dm) > 1.0):
             print("maximum deflection of mirror reached")
@@ -154,16 +162,26 @@ def phase_extraction(constants, take_new_img = False, folder_name = "20161130_fi
             
         mc.set_displacement(u_dm, mirror)
 
-        raw_input("keep it covered!")
-        sh.snapImage()
-        dist_image = sh.getImage().astype('float')
-        PIL.Image.fromarray(dist_image).save(folder_name + "dist_image.tif")
-
-        raw_input("remove piece of paper")
+        raw_input("remove piece of paper and adjust")
         time.sleep(0.2)
         int_cam.snapImage()
         image_i0 = int_cam.getImage().astype(float)
         PIL.Image.fromarray(image_i0).save(folder_name + "interferogram_0.tif")
+
+        raw_input("re-cover ref mirror!")
+        sh.snapImage()
+        dist_image = sh.getImage().astype('float')
+        PIL.Image.fromarray(dist_image).save(folder_name + "dist_image.tif")
+
+        raw_input("cover DM for new mirror reference")
+        sh.snapImage()
+        image_ref_mirror = sh.getImage().astype(float)
+        PIL.Image.fromarray(image_ref_mirror).save(folder_name + "image_ref_mirror.tif")
+
+##        this would be a new zero_pos_dm, might be needed, but would be the same as image_ref_mirror
+##        sh.snapImage()
+##        zero_pos_dm = sh.getImage().astype(float)
+##        PIL.Image.fromarray(zero_pos_dm).save(folder_name + "zero_pos_dm.tif")
 
         raw_input("tip and tilt 1")
         time.sleep(1)
@@ -207,6 +225,10 @@ def phase_extraction(constants, take_new_img = False, folder_name = "20161130_fi
 
     sh_spots = np.dstack((image_ref_mirror, zero_pos_dm, dist_image))        
     interferograms = np.dstack((image_i0, image_i1, image_i2, image_i3, image_i4))
+    flip = raw_input("flip interferograms?")
+    if flip == 'y':
+        interferograms = np.fliplr(interferograms)
+        image_i0 = np.fliplr(image_i0)
     indices_id = np.arange(1, interferograms.shape[-1])
     id_shape = list(interferograms.shape[0:2])
     id_shape.append(interferograms.shape[-1] -1)
@@ -223,8 +245,11 @@ def phase_extraction(constants, take_new_img = False, folder_name = "20161130_fi
 
     Id_int = np.zeros((2*radius, 2*radius, Id_tot.shape[-1]))
     Id_zeros = np.zeros(Id_int.shape, dtype = float)
+    [ny, nx] = interferograms[...,0].shape
+    flipped_y0 = y0
+    flipped_x0 = nx - x0
 
-    Id_int = Id_tot[y0-radius:y0+radius, x0-radius:x0+radius, :]
+    Id_int = Id_tot[flipped_y0-radius:flipped_y0+radius, flipped_x0-radius:flipped_x0+radius, :]
     zeros_i = np.abs(Id_int) <= 1
     Id_zeros[zeros_i] = 1
 
@@ -279,6 +304,13 @@ def phase_extraction(constants, take_new_img = False, folder_name = "20161130_fi
     delta_i = (tau_i + sigma)/2.0
     sin_diff = np.sin(delta_i)
     Id_hat = Id_int/(-2.0 * sin_diff)
+
+    if save_id_hat == True:
+        np.save(folder_name + "id_hat.npy", Id_hat)
+##    filter_hat = raw_input("do you want to filter Id_hat?")
+##    if filter_hat == 'y':
+    for i in range(Id_hat.shape[-1]):
+        Id_hat[...,i] = ndimage.median_filter(Id_hat[...,i], k_I)
 
     if show_id_hat == True:
         f, ax = plt.subplots(1,4)

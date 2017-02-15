@@ -7,7 +7,8 @@ import matplotlib.pyplot as plt
 from matplotlib import cm
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 import scipy.special as spec
-
+from mpl_toolkits.mplot3d import Axes3D
+import matplotlib.colors as colors
 
 def cart2pol(x, y):
     "returns polar coordinates given x and y"
@@ -256,6 +257,27 @@ def complex_zernike(j_max, x, y):
     n, m = Zernike_j_2_nm(j)
     nm2 = (n - np.abs(m))/2
     xshape = list(rho.shape)
+    xshape.append(int(j_max)+1)
+    Cnm = np.zeros(xshape, dtype = np.complex_)
+    a = np.zeros(len(m))
+    b = np.abs(m)
+    for i in range(len(nm2)):
+        nm = nm2[i]
+        nm = int(nm)
+        for jj in range(nm+1):
+            Cnm[...,i] += spec.comb(nm+a[i], jj) * spec.comb(nm+b[i], nm-jj) * np.power((rho2-1)/2.0, (nm - jj)) * np.power((rho2+1)/2.0, jj)
+        Cnm[...,i] *= np.power(rho, abs(m[i])) * np.exp(1j * m[i] * theta)
+    return Cnm
+
+def complex_zernike_int(j_max, x, y):
+    """Given the meshgrids for x and y, and given the maximum fringe order, complex zernike retursn
+    an (shape(x), j_max) sized matrix with values of the complex Zernike polynomial at the given points"""
+    rho, theta = cart2pol(x, y)
+    rho2 = 2 * rho**2 - 1
+    j = np.arange(1, j_max+2)
+    n, m = Zernike_j_2_nm(j)
+    nm2 = (n - np.abs(m))/2
+    xshape = list(rho.shape)
     xshape.append(j_max+1)
     Cnm = np.zeros(xshape, dtype = np.complex_)
     a = np.zeros(len(m))
@@ -268,12 +290,11 @@ def complex_zernike(j_max, x, y):
         Cnm[...,i] *= np.power(rho, abs(m[i])) * np.exp(1j * m[i] * theta)
     return Cnm
 
-
-
 def plot_zernike(j_max, a, ax= None, wavelength = 632.8e-9, cmap = cm.jet, savefigure = False, title = 'zernike_plot', fliplr = False,**kwargs):
 ### plot zernikes according to coefficients
     if ax is None:
-        ax = plt.gca()
+        fig = plt.figure()
+        ax = fig.add_subplot(111, projection='3d')
     xi, yi = np.linspace(-1, 1, 300), np.linspace(-1, 1, 300)
     xi, yi = np.meshgrid(xi, yi)
     xn = np.ma.masked_where(xi**2 + yi**2 >= 1, xi)
@@ -285,22 +306,28 @@ def plot_zernike(j_max, a, ax= None, wavelength = 632.8e-9, cmap = cm.jet, savef
     Z = np.sum(a * Z_mat, axis=2)
     #for jj in range(j_max):
     #    Z += a[jj] * Zernike_xy(xi, yi, power_mat, jj+2)
-    Z /= wavelength
-    Zn = np.ma.masked_where(xi**2 + yi**2 >=1, Z)
-    if 'v' in kwargs:
-        levels = kwargs['v']
-    else:
-        levels = np.linspace(np.min(Zn), np.max(Zn))
-    if fliplr:
-        Zn = np.fliplr(Zn)
+    #Z /= wavelength
+    #Zn = np.ma.masked_where(xi**2 + yi**2 >=1, Z)
+    outside = np.where(xi**2 + yi**2 >=1)
+    inside= np.where(xi**2 + yi**2 < 1)
+    Z[outside] = np.nan
+    lev = np.linspace(-10, 10)
+    norml = colors.BoundaryNorm(lev, 256)
+##    if 'v' in kwargs:
+##        levels = kwargs['v']
+##    else:
+##        levels = np.linspace(np.min(Zn), np.max(Zn))
+##    if fliplr:
+##        Zn = np.fliplr(Zn)
 
     #fig = plt.figure(figsize = plt.figaspect(1.))
-    plotje = ax.contourf(xn, yn, Zn, cmap = cmap, linewidth = 0, levels = levels)
-    divider = make_axes_locatable(ax)
-    cax = divider.append_axes("right", size="5%", pad=0.1)
-    cbar = plt.colorbar(plotje, cax=cax)
+    plotje = ax.plot_surface(xi, yi, Z, cmap = 'jet', norm = norml)
+    ax.axis('off')
+##    divider = make_axes_locatable(ax)
+##    cax = divider.append_axes("right", size="5%", pad=0.1)
+##    cbar = plt.colorbar(plotje, cax=cax)
     if savefigure:
-        plt.savefig(title + '.png', bbox_inches='tight')
+        plt.savefig(folder_name + title + '.png', bbox_inches='tight', dpi = 600)
     return plotje
 
 def plot_interferogram(j_max, a, piston = 0, ax = None, f = None, wantcbar = False, cmap = 'bone', wavelength = 632.8e-9, fliplr = False, savefigure = False, title = 'Interferogram according to a', **kwargs):
@@ -341,6 +368,34 @@ def plot_interferogram(j_max, a, piston = 0, ax = None, f = None, wantcbar = Fal
         cax = divider.append_axes("right", size="5%", pad=0.1)
         cbar = plt.colorbar(interferogram, cax=cax)
     return interferogram
+
+def imshow_interferogram(j_max, a, N, ax = None, f = None, wantcbar = False, piston = 0, cmap = 'bone', wavelength = 632.8e-9, fliplr = False, **kwargs):
+    if ax is None:
+        ax = plt.gca()
+    xi, yi = np.linspace(-1, 1, N), np.linspace(-1, 1, N)
+    xi, yi = np.meshgrid(xi, yi)
+    j_range = np.arange(2, j_max+2)
+    if 'power_mat' in kwargs:
+        power_mat = kwargs['power_mat']
+    else:
+        power_mat = Zernike_power_mat(j_max+2)
+    if 'Z_mat' in kwargs:
+        Z_mat = kwargs['Z_mat']
+    else:
+        Z_mat = Zernike_xy(xi, yi, power_mat, j_range)
+    Z = np.sum(a * Z_mat, axis = 2)
+    Z += piston
+    phase = np.mod(Z - np.pi, 2*np.pi) - np.pi
+    Intens = np.cos(phase/2.0)**2
+    if fliplr:
+        Intens = np.fliplr(Intens)
+    interferogram = ax.imshow(np.ma.masked_where(xi**2 + yi**2 >= 1, Intens), vmin = 0, vmax = 1, cmap = cmap, origin = 'lower', interpolation = 'none')
+    if wantcbar:
+        divider = make_axes_locatable(ax)
+        cax = divider.append_axes("right", size="5%", pad=0.1)
+        cbar = plt.colorbar(interferogram, cax=cax)
+
+    return Intens
 
 def int_for_comp(j_max, a, N, piston, Z_mat, wavelength = 632.8e-9, fliplr = False):
     Z = np.zeros(list(Z_mat.shape)[0:2])

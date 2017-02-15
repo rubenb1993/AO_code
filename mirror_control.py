@@ -20,6 +20,13 @@ def filter_positions(inside, *args):
         new_positions.append(np.array(arg)[inside])
     return new_positions
 
+def filter_nans(*args):
+    """given vectors, filters out the NANs. Assumes that nans appear in the same place"""
+    new_positions = []
+    for arg in args:
+        new_positions.append(arg[~np.isnan(arg)])
+    return new_positions
+
 def set_displacement(u_dm, mirror):
     """linearizes the deformable mirror control.
     u_dm is a vector in the range (-1, 1) with the size (actuators,)
@@ -53,7 +60,7 @@ def set_up_cameras():
     if pixel_clock == 150.0:
         cam1.setProperty("cam","Pixel Clock",150)
         cam1.setProperty("cam", "PixelType", '8bit mono')
-        cam1.setProperty("cam","Exposure",0.0434)
+        cam1.setProperty("cam","Exposure",0.097)
         sh = cam1
 
         cam2=MMCorePy.CMMCore()
@@ -61,11 +68,11 @@ def set_up_cameras():
         cam2.initializeDevice("cam")
         cam2.setCameraDevice("cam")
         cam2.setProperty("cam","Pixel Clock", 43)
-        cam2.setProperty("cam","Exposure", 0.0668)
+        cam2.setProperty("cam","Exposure", 13.226)
         int_cam = cam2
     else:
         cam1.setProperty("cam","Pixel Clock", 43)
-        cam1.setProperty("cam","Exposure", 0.0668)
+        cam1.setProperty("cam","Exposure", 13.226)
         int_cam = cam1
 
         cam2=MMCorePy.CMMCore()
@@ -74,7 +81,7 @@ def set_up_cameras():
         cam2.setCameraDevice("cam")
         cam2.setProperty("cam","Pixel Clock", 150)
         cam2.setProperty("cam","PixelType", '8bit mono')
-        cam2.setProperty("cam","Exposure", 0.0434)
+        cam2.setProperty("cam","Exposure", 0.097)
         sh = cam2
     return sh, int_cam
 
@@ -138,7 +145,7 @@ def flat_wavefront(u_dm, zero_image, image_control, r_sh_px, r_int_px, sh, mirro
         u_dm_diff = np.dot(V2D_inv, d)
         u_dm -= scaling * u_dm_diff
         set_displacement(u_dm, mirror)
-        time.sleep(0.05)
+        time.sleep(0.1)
 
     print("wavefront should be flat now")
     if show_hist_voltage:
@@ -146,7 +153,7 @@ def flat_wavefront(u_dm, zero_image, image_control, r_sh_px, r_int_px, sh, mirro
 
     if np.any(np.abs(u_dm) > 1.0):
         print("maximum deflection of mirror reached")
-    #print(u_dm)
+        print(u_dm)
 
     if (show_hist_voltage or show_accepted_spots):
         plt.show()
