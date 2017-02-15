@@ -8,7 +8,7 @@ def filter_wrapped_phase_med(image, k):
     ny, nx = image.shape
     assert(ny == nx) ## assert a square image for simplicity
     if (k%2 == 0):
-        print("k  has to be an integer!")
+        print("k  has to be an uneven integer!")
         return
     N = nx
     i, j = np.arange(N), np.arange(N)

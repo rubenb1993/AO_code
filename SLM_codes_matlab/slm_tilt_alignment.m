@@ -37,8 +37,8 @@ str2 = ['and n_px = ', num2str(n_px)];
 disp(str2)
 
 tilted = zeros(Ymax, Xmax);
-for i = 1:Ymax
-    tilted(i, :) = (1)/n_px * mod(i, n_px);
+for i = 1:Xmax
+    tilted(:, i) = (1)/n_px * mod(i, n_px);
 end
 
 
