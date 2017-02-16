@@ -322,7 +322,7 @@ def plot_zernike(j_max, a, ax= None, wavelength = 632.8e-9, cmap = cm.jet, savef
 
     #fig = plt.figure(figsize = plt.figaspect(1.))
     plotje = ax.plot_surface(xi, yi, Z, cmap = 'jet', norm = norml)
-    ax.axis('off')
+    #ax.axis('off')
 ##    divider = make_axes_locatable(ax)
 ##    cax = divider.append_axes("right", size="5%", pad=0.1)
 ##    cbar = plt.colorbar(plotje, cax=cax)
