@@ -231,7 +231,7 @@ if filt_filt == 'y':
             atany = np.zeros(shape_unwrp)
             atanx = np.zeros(shape_unwrp)
             org_phase = np.zeros(shape_unwrp)
-            org_phase_plot = np.zeros(shape_unwrp)
+            org_phase_plot = np.zeros(shape_unwrp) 
             org_unwr = np.zeros(shape_unwrp)
 
             #phase extraction

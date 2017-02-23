@@ -100,7 +100,7 @@ def weight_thicken(indices, weight_matrix, border = 10):
     weight_matrix[coords[0], coords[1] +1] = 0
     return weight_matrix
 
-def phase_extraction(constants, take_new_img = False, folder_name = "20161130_five_inter_test/", show_id_hat = False, show_hough_peaks = False, a_abb = np.zeros(10), min_height = 80, look_ahead = 15, k_I = 5, save_id_hat = True, index = 0):
+def phase_extraction(constants, take_new_img = False, folder_name = "20161130_five_inter_test/", show_id_hat = False, show_hough_peaks = False, a_abb = np.zeros(10), min_height = 80, look_ahead = 15, k_I = 1, save_id_hat = True, index = 0):
     px_size_sh, px_size_int, f_sh, r_int_px, r_sh_px, r_sh_m, j_max, wavelength, box_len, x0, y0, radius = constants
     x0, y0, radius = int(x0), int(y0), int(radius)
     if take_new_img == True:
@@ -141,6 +141,7 @@ def phase_extraction(constants, take_new_img = False, folder_name = "20161130_fi
             if a_abb.all(0):
                 a = np.zeros(j_max)
                 ind = np.array([4])
+                print("no aberrations added")
                 #a[ind] = 0.15 * wavelength
                 a[ind] = 1.5 
             else:

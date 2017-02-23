@@ -295,7 +295,7 @@ def plot_zernike(j_max, a, ax= None, wavelength = 632.8e-9, cmap = cm.jet, savef
     if ax is None:
         fig = plt.figure()
         ax = fig.add_subplot(111, projection='3d')
-    xi, yi = np.linspace(-1, 1, 300), np.linspace(-1, 1, 300)
+    xi, yi = np.linspace(-1, 1, 600), np.linspace(-1, 1, 600)
     xi, yi = np.meshgrid(xi, yi)
     xn = np.ma.masked_where(xi**2 + yi**2 >= 1, xi)
     yn = np.ma.masked_where(xi**2 + yi**2 >= 1, yi)
@@ -311,7 +311,7 @@ def plot_zernike(j_max, a, ax= None, wavelength = 632.8e-9, cmap = cm.jet, savef
     outside = np.where(xi**2 + yi**2 >=1)
     inside= np.where(xi**2 + yi**2 < 1)
     Z[outside] = np.nan
-    lev = np.linspace(-10, 10)
+    lev = np.linspace(Z[inside].min(), Z[inside].max())
     norml = colors.BoundaryNorm(lev, 256)
 ##    if 'v' in kwargs:
 ##        levels = kwargs['v']
@@ -321,7 +321,7 @@ def plot_zernike(j_max, a, ax= None, wavelength = 632.8e-9, cmap = cm.jet, savef
 ##        Zn = np.fliplr(Zn)
 
     #fig = plt.figure(figsize = plt.figaspect(1.))
-    plotje = ax.plot_surface(xi, yi, Z, cmap = 'jet', norm = norml)
+    plotje = ax.plot_surface(xi, yi, Z, cmap = 'jet', norm = norml, linewidth = 0.2)
     #ax.axis('off')
 ##    divider = make_axes_locatable(ax)
 ##    cax = divider.append_axes("right", size="5%", pad=0.1)
@@ -389,13 +389,16 @@ def imshow_interferogram(j_max, a, N, ax = None, f = None, wantcbar = False, pis
     Intens = np.cos(phase/2.0)**2
     if fliplr:
         Intens = np.fliplr(Intens)
-    interferogram = ax.imshow(np.ma.masked_where(xi**2 + yi**2 >= 1, Intens), vmin = 0, vmax = 1, cmap = cmap, origin = 'lower', interpolation = 'none')
+    if 'extent' in kwargs:
+        extent = kwargs['extent']
+        interferogram = ax.imshow(np.ma.masked_where(xi**2 + yi**2 >= 1, Intens), vmin = 0, vmax = 1, cmap = cmap, origin = 'lower', interpolation = 'none', extent = extent)
+    else:
+        interferogram = ax.imshow(np.ma.masked_where(xi**2 + yi**2 >= 1, Intens), vmin = 0, vmax = 1, cmap = cmap, origin = 'lower', interpolation = 'none')
     if wantcbar:
         divider = make_axes_locatable(ax)
         cax = divider.append_axes("right", size="5%", pad=0.1)
         cbar = plt.colorbar(interferogram, cax=cax)
-
-    return Intens
+    return interferogram
 
 def int_for_comp(j_max, a, N, piston, Z_mat, wavelength = 632.8e-9, fliplr = False):
     Z = np.zeros(list(Z_mat.shape)[0:2])

@@ -161,8 +161,8 @@ dpi_num = 600
 int_im_size = (4.98, 3.07)
 int_im_size_23 = (0.66 * 4.98, 3.07)
 int_im_size_13 = (0.33 * 4.98, 3.07)
-index = 8
-fold_name = "20170126_single_actuators/" + str(index) + "/"
+index = 3
+fold_name = "20170216_desired_vs_created/"
 folder_name = fold_name
 
 ## centre and radius of interferogam. Done by eye, with the help of define_radius.py
@@ -193,15 +193,15 @@ if hough_test == 'y':
 else:
     hough_test = False
 a_abb = np.zeros(j_max)
-a_abb[7] = 2
+a_abb[2] = 4.
 ##a_abb[1] = 10
 ##a_abb[2] = 1 * wavelength
 ##a_abb[1] = -1 * wavelength
 
 ### other factors for phase extraction
 # miniminum height of peaks and distance between peaks in hough_transform
-min_height = 29
-look_ahead = 10
+min_height = 25
+look_ahead = 20
 k_I = 1 ##size of median window for Id_hat,use 1 for no filtering
 
 org_phase, delta_i, sh_spots, inter_0, flat_wf = PE.phase_extraction(constants, take_new_img = new_img, folder_name = fold_name, show_id_hat = hough_test, show_hough_peaks = hough_test, a_abb = a_abb, min_height = min_height, look_ahead = look_ahead, k_I = k_I, save_id_hat = True, index = index)
@@ -232,6 +232,7 @@ for k in range(org_phase.shape[-1]):
     butter_unwr[..., k] -= delta_i[..., Un_sol[0][k]]    
 
 np.save(folder_name + "filtered_phase.npy", butter_unwr)
+np.save(folder_name + "delta_i.npy", delta_i)
 
 ## make mask and find mean within mask
 mask = [np.sqrt((xx_alg) ** 2 + (yy_alg) ** 2) >= 1]
@@ -274,6 +275,7 @@ Z_mat = Zn.Zernike_xy(xi, yi, power_mat, j_range)
 ##orig /= np.max(orig) * 0.9
 ##orig[orig > 1] = 1
 orig /= orig.max()
+orig = np.fliplr(np.array(PIL.Image.open(folder_name + "orig_scale.tif")))
 
 ##mins = np.zeros(a_filt.shape[-1])
 ##f, ax = plt.subplots(2, 5)

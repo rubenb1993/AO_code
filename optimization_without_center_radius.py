@@ -187,8 +187,8 @@ Zernike_2d = np.zeros((len(x_in), j_max)) ## flatten to perform least squares fi
 for i in range(len(j)):
     Zernike_2d[:, i] = Zernike_3d[...,i].flatten()
 
-folder_names = ["20170126_single_actuators/1/", "20170126_single_actuators/3/", "20170126_single_actuators/6/", "20170126_single_actuators/8/", "20170125_spherical/", "20170125_astigmatism/", "20170125_trifoil/", "20170125_coma/"]
-#folder_names = ["20170126_single_actuators/1/"]
+#folder_names = ["20170126_single_actuators/1/", "20170126_single_actuators/3/", "20170126_single_actuators/6/", "20170126_single_actuators/8/", "20170125_spherical/", "20170125_astigmatism/", "20170125_trifoil/", "20170125_coma/"]
+folder_names = ["20170216_desired_vs_created/"]
 
 for i in range(len(folder_names)):
     folder_name = folder_names[i]
@@ -205,6 +205,8 @@ for i in range(len(folder_names)):
 
 
     but_med = np.median(butter_unwr, axis = 2)
+    plt.imshow(but_med, origin = 'lower')
+    plt.show()
     but_med_flat = but_med[xy_inside]
 
     a_butt = np.linalg.lstsq(Zernike_2d, but_med_flat)[0]
