@@ -11,7 +11,7 @@ import phase_unwrapping_test as pw
 def gaus(x,a,x0,sigma):
     return a*np.exp(-(x-x0)**2/(2*sigma**2))
 
-folder_name = "20170216_desired_vs_created/"
+folder_name = "20170307_coma/"
 folder = "20170214_post_processing/"
 
 ### predetermined constants
@@ -58,14 +58,15 @@ orig_filt = orig_filt[dif_x:nx_pad - dif_x, dif_x:nx_pad - dif_x]
 orig_filt = np.ma.array(orig_filt, mask = mask)
 orig_filt /= orig_filt.max()
 orig /= orig.max()
+#PIL.Image.fromarray(orig).save(folder_name + "orig_scale.tif")
 
 
 power_mat = Zn.Zernike_power_mat(j_max+2)
 Z_mat = Zn.Zernike_xy(xi, yi, power_mat, j_range)
 flipint = False
 
-x_search =227
-y_search = 350
+x_search =N/2
+y_search = N/2
 safety_fact = 1.03
 
 

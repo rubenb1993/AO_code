@@ -1,0 +1,18 @@
+2017-03-09T11:03:29.322673 tid924 [IFO,LogManager] Enabled primary log file H:\Desktop\AO_code\SLM_codes_matlab\CoreLogs\CoreLog20170309T110328_pid5312.txt
+2017-03-09T11:03:29.322673 tid924 [IFO,App] User: rbiesheuvel
+2017-03-09T11:03:29.323673 tid924 [IFO,App] Host: TUD201750
+2017-03-09T11:03:29.323673 tid924 [IFO,App] MM Studio version: 1.4.22
+2017-03-09T11:03:29.323673 tid924 [IFO,App] MMCore version 8.1.0
+2017-03-09T11:03:29.323673 tid924 [IFO,App] Device API version 65, Module API version 10
+2017-03-09T11:03:29.323673 tid924 [IFO,App] Operating System: Windows 7 (amd64) 6.1
+2017-03-09T11:03:29.323673 tid924 [IFO,App] JVM: Java HotSpot(TM) 64-Bit Server VM, version 1.6.0_31, 64-bit
+2017-03-09T11:03:38.908673 tid924 [IFO,App] Finished waiting for plugins to load
+2017-03-09T11:03:38.930673 tid924 [IFO,App] Updating GUI; config pad = true; from cache = false
+2017-03-09T11:03:38.931673 tid924 [IFO,Core] Did update system state cache
+2017-03-09T11:03:38.931673 tid924 [IFO,App] Finished updating GUI
+2017-03-09T11:03:38.934673 tid924 [IFO,App] Startup script file (H:\Desktop\AO_code\SLM_codes_matlab\MMStartup.bsh) not present.
+2017-03-09T11:03:39.199673 tid924 [IFO,App] Rebuilding config group table
+2017-03-09T11:03:39.199673 tid924 [IFO,App] Finished rebuilding config group table
+2017-03-09T11:06:06.798673 tid924 [IFO,Core] Did unload all devices
+2017-03-09T11:06:06.798673 tid924 [IFO,Core] System reset
+2017-03-09T11:06:06.798673 tid924 [IFO,Core] Core session ended

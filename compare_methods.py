@@ -162,7 +162,7 @@ int_im_size = (4.98, 3.07)
 int_im_size_23 = (0.66 * 4.98, 3.07)
 int_im_size_13 = (0.33 * 4.98, 3.07)
 index = 3
-fold_name = "20170216_desired_vs_created/"
+fold_name = "20170307_coma/"
 folder_name = fold_name
 
 ## centre and radius of interferogam. Done by eye, with the help of define_radius.py
@@ -193,7 +193,7 @@ if hough_test == 'y':
 else:
     hough_test = False
 a_abb = np.zeros(j_max)
-a_abb[2] = 4.
+a_abb[5] = 1.5
 ##a_abb[1] = 10
 ##a_abb[2] = 1 * wavelength
 ##a_abb[1] = -1 * wavelength
@@ -201,7 +201,7 @@ a_abb[2] = 4.
 ### other factors for phase extraction
 # miniminum height of peaks and distance between peaks in hough_transform
 min_height = 25
-look_ahead = 20
+look_ahead = 25
 k_I = 1 ##size of median window for Id_hat,use 1 for no filtering
 
 org_phase, delta_i, sh_spots, inter_0, flat_wf = PE.phase_extraction(constants, take_new_img = new_img, folder_name = fold_name, show_id_hat = hough_test, show_hough_peaks = hough_test, a_abb = a_abb, min_height = min_height, look_ahead = look_ahead, k_I = k_I, save_id_hat = True, index = index)
