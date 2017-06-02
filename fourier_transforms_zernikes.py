@@ -36,10 +36,12 @@ def fourier_zernike(n, m, FX, FY):
     return Q
 
 ##fig, ax = plt.subplots(1,2)
-j_max = 40
+n_max = 12
+j = Zn.max_n_to_j(n_max, order = 'brug')[str(n_max)]
+j_max = np.max(j)
 x, y = np.linspace(-1, 1, 300), np.linspace(-1, 1, 300)
 xx, yy = np.meshgrid(x, y)
-power_mat = Zn.Zernike_power_mat(j_max)
+power_mat = Zn.Zernike_power_mat(n_max, order = 'brug')
 
 wavelength = 632e-9
 focal = 25.0e-2
@@ -73,8 +75,8 @@ FX, FY = np.meshgrid(fx, fy)
 X_l_NA = FX * wavelength * focal / (wavelength / NA)
 Y_l_NA = FY * wavelength * focal / (wavelength / NA)
 print(X_l_NA[dfx/2, dfx/2 + 2] - X_l_NA[dfx/2, dfx/2+1])
-n = [10]
-m = [0]
+n = [0, 2, 4, 6, 8, 10]
+m = [0, 0, 2, 4, 6, 8]
 Q_11 = np.zeros(X_l_NA.shape, dtype = np.complex_)
 for i in range(len(n)):
     Q_11 += fourier_zernike(n[i], m[i], X_l_NA, Y_l_NA)

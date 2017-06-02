@@ -1,0 +1,438 @@
+import sys
+import os
+import time
+
+if "C:\Program Files\Micro-Manager-1.4" not in sys.path:
+    sys.path.append("C:\Program Files\Micro-Manager-1.4")
+if "H:\Desktop\numba" not in sys.path:
+    sys.path.append("H:\Desktop\\numba")
+##import MMCorePy
+import PIL.Image
+import numpy as np
+import Hartmann as Hm
+import displacement_matrix as Dm
+#import LSQ_method as LSQ
+import mirror_control as mc
+import matplotlib.pyplot as plt
+import edac40
+import math
+import peakdetect
+import matplotlib.ticker as ticker
+import phase_unwrapping_test as pw
+import LSQ_method as LSQ
+import detect_peaks as dp
+import scipy.fftpack as fftp
+import Zernike as Zn
+import itertools
+from mpl_toolkits.mplot3d import Axes3D
+import matplotlib.colors as cm
+from mpl_toolkits.axes_grid1 import make_axes_locatable
+from matplotlib import rc
+import scipy.ndimage as ndimage
+
+
+# Define font for figures
+##rc('font', **{'family': 'serif', 'serif': ['Computer Modern']})
+rc('text', usetex=False)
+
+#from numba import jit
+
+def hough_numpy(img, x, y):
+    """
+    Input: binary image of points which need to be checked if they are on one line
+            x, y are coordinate meshgrids
+    Output:
+        Acc: (2*diagonal length, num_thetas) matrix which is the Hough transform of the image
+        rhos: vector containing distances (used for plotting the hough transform)
+        thetas: vector containing all angles (used for plotting the hough transform)
+        diag_len: diagonal length of the image"""
+    
+    width, height = img.shape
+    diag_len = np.ceil(np.sqrt(width * width + height * height)).astype(int)  # diagonal length of image
+    rhos = np.linspace(0., 2.0 * diag_len, 2.0 * diag_len)  # x-axis for plot with hough transform
+    
+    # pre-compute angles
+    thetas = np.linspace(-0.5*np.pi, 0.45* np.pi, 200)
+    cos_t = np.cos(thetas)
+    sin_t = np.sin(thetas)
+    num_thetas = len(thetas)
+    
+    Acc = np.zeros((2 * diag_len, num_thetas), dtype=np.uint64)
+    y_id, x_id = np.nonzero(img)
+    y_tr, x_tr = y[y_id], x[x_id]
+    cos_tile, sin_tile = np.tile(cos_t, (len(x_id), 1)), np.tile(sin_t, (len(x_id), 1))
+    x_tr_tile, y_tr_tile = np.tile(x_tr, (len(thetas), 1)).T, np.tile(y_tr, (len(thetas), 1)).T
+    rho = np.round(x_tr_tile * cos_tile + y_tr_tile * sin_tile) #+ diag_len  # precompute rho
+    rho = rho.astype(int)
+    # binning more efficiently
+    for j, i in itertools.product(range(len(x_id)), range(num_thetas)):
+        Acc[rho[j, i], i] += 1
+
+    return Acc, rhos, thetas, diag_len
+
+def max_finding(Acc, rhos, thetas, minheight = 85, lookahead = 35):
+    """ Algorithm for finding the angle of the straight lines, and their spacing
+    Input: Accumulator, rhos and thetas  matrix from hough_numpy()
+            possibile: minimum height and lookahead to filter spurious peaks.
+    Output:
+            theta_max: angle of the straight lines
+            s_max: distance of the straight lines from the origin
+            theta_max_index: index of the angle in the angle vector
+            peak_indices: indices of the rho position of the peaks in the accumulator
+    """
+    idmax = np.argmax(Acc)
+    rho_max_index, theta_max_index = np.unravel_index(idmax, Acc.shape)
+    peak_indices = dp.detect_peaks(Acc[:, theta_max_index], mph = minheight, mpd = lookahead)
+    s_max = np.min(rhos[peak_indices])
+    theta_max = thetas[theta_max_index]
+    return theta_max, s_max, theta_max_index, peak_indices
+
+##def set_subplot_interferograms(*args, **kwargs):
+##    """ algorithm to remove ticks from x and y axis and set a title for the interferogram
+##    """
+##    if 'i' in kwargs:
+##        i = kwargs['i']
+##    for arg in args:
+##        arg.get_xaxis().set_ticks([])
+##        arg.get_yaxis().set_ticks([])
+##        #arg.axis('off')
+##        arg.set_title(titles[i], fontsize = 9, loc = 'left')
+
+##def make_colorbar(f, image):
+##    f.subplots_adjust(right=0.8)
+##    cbar_ax = f.add_axes([0.85, 0.3, 0.05, 0.4])
+##    cbar = f.colorbar(image, cax = cbar_ax)
+##    tick_locator = ticker.MaxNLocator(nbins = 5)
+##    cbar.locator = tick_locator
+##    cbar.ax.yaxis.set_major_locator(ticker.AutoLocator())
+##    cbar.update_ticks()
+##    cbar.ax.tick_params(labelsize = 6)
+##    cbar.set_label('Intensity level', size = 7)
+
+##def weight_thicken(indices, weight_matrix, border = 10):
+##    indices = np.vstack(indices) #make an array from the tuple
+##    where_inside = np.where((indices[0] > border) & (indices[1] > border) & (indices[0] < weight_matrix.shape[0]-border) & (indices[1] < weight_matrix.shape[0]-border) )
+##    coords = np.squeeze(indices[:, np.vstack(where_inside)])
+##    weight_matrix[coords[0], coords[1]] = 0
+##    weight_matrix[coords[0] -1, coords[1]] = 0
+##    weight_matrix[coords[0], coords[1] -1] = 0
+##    weight_matrix[coords[0] +1, coords[1]] = 0
+##    weight_matrix[coords[0], coords[1] +1] = 0
+##    return weight_matrix
+
+def phase_extraction(constants, folder_name = "20161130_five_inter_test/", show_id_hat = False, show_hough_peaks = False, a_abb = np.zeros(10), min_height = 80, look_ahead = 15, k_I = 1, save_id_hat = True, index = 0, flip_ask = True):
+    """ Algorithm for extracting the phase using Soloviev & Vdovin's method
+    Input: Constants vector containing:
+            px_size_sh: pixel size in [m] on the SH sensor
+            px_size_int: pixel size in [m] on the interferogram camera
+            f_sh: effective focal length of the Shack-Hartmann sensor (not used anymore)
+            r_int_px: radius of the spot on the interferogram camera in [px]
+            r_sh_px: radius of the spot on the shack-hartmann sensor in [px] (not used anymore)
+            r_sh_m: radius of the spot on the shack-hartmann sensor in [m] (not used anymore)
+            j_max: maximum amount of zernikes (single index) (not used anymore)
+            wavelength: wavelength of the laser in [m] (not used anymore)
+            box_len: average distance between nearest neighbour spots on the SH sensor (not used)
+            x0, y0, radius: centre position and radius of the spot on the interferogram camera
+        folder_name: string to the folder where the interferograms are saved
+        show_id_hat: [bool] whether or not Id_hat (see Soloviev&Vdovin) should be made visual. Useful for determining if the algoirthm went well
+        show_hough_peaks: [bool] whether or not the peaks in the hough accumulator should be shown individually
+        a_abb: vector containing the the be added aberration (not used anymore)
+        min_heigh, look_ahead: paramters used for the finding of the peaks in the Hough accumulator
+        k_I = [int] uneven integer determining the window used for taking the median filter of the Id_hat. In current research should be 1
+        save_id_hat = [bool] whether or not id_hat should be saved.
+        index: [int] containing the index for which deformable mirror element will be extended completely (not used anymore)
+        flip_ask: [bool] whether to ask to flip the interferograms up-down. If not asked, it will be flipped (necessary for SLM setup)
+    """
+
+
+    px_size_sh, px_size_int, f_sh, r_int_px, r_sh_px, r_sh_m, j_max, wavelength, box_len, x0, y0, radius = constants
+    x0, y0, radius = int(x0), int(y0), int(radius)
+##    if take_new_img == True:
+##        global mirror
+##        mirror = edac40.OKOMirror("169.254.158.203") # Enter real IP in here
+##        sh, int_cam = mc.set_up_cameras()
+##
+##        actuators = 19
+##        u_dm = np.zeros(actuators)
+##        mc.set_displacement(u_dm, mirror)
+##        time.sleep(0.2)
+##
+##        raw_input("Did you calibrate the reference mirror? Block DM")
+##        sh.snapImage()
+##        image_ref_mirror = sh.getImage().astype(float)
+##        PIL.Image.fromarray(image_ref_mirror).save(folder_name + "image_ref_mirror.tif")
+##
+##
+##        raw_input("block reference mirror!")
+##        sh.snapImage()
+##        zero_pos_dm = sh.getImage().astype(float)
+##        PIL.Image.fromarray(zero_pos_dm).save(folder_name + "zero_pos_dm.tif")
+##
+##        ### make flat wavefront
+##        u_dm, x_pos_norm_f, y_pos_norm_f, x_pos_zero_f, y_pos_zero_f, V2D = mc.flat_wavefront(u_dm, zero_pos_dm, image_ref_mirror, r_sh_px, r_int_px, sh, mirror, show_accepted_spots = False)
+##
+##        raw_input("remove paper for flat wavefront")
+##        int_cam.snapImage()
+##        flat_wf = int_cam.getImage().astype(float)
+##        PIL.Image.fromarray(flat_wf).save(folder_name + "flat_wf.tif")
+##
+##        raw_input("black reference mirror again!")
+##        power_mat = Zn.Zernike_power_mat(j_max+2)
+##        G = LSQ.matrix_avg_gradient(x_pos_norm_f, y_pos_norm_f, j_max, r_sh_px, power_mat)
+##
+##        abber = raw_input("introduce zernikes?")
+##        if abber == 'y':
+##            if a_abb.all(0):
+##                a = np.zeros(j_max)
+##                ind = np.array([4])
+##                print("no aberrations added")
+##                #a[ind] = 0.15 * wavelength
+##                a[ind] = 1.5 
+##            else:
+##                a = a_abb
+##
+##            
+##            u_dm_flat = u_dm
+##            #V2D_inv = np.linalg.pinv(V2D)
+##            v_abb = (f_sh * wavelength /(r_sh_m * px_size_sh * 2 * np.pi)) * np.linalg.lstsq(V2D, np.dot(G, a))[0]#np.dot(V2D_inv, np.dot(G, a))
+##            print(v_abb[4], v_abb[7])
+##            u_dm -= v_abb
+##        else:
+##            
+##            u_dm[index] = -1 * np.sign(u_dm[index])
+##
+##        if np.any(np.abs(u_dm) > 1.0):
+##            print("maximum deflection of mirror reached")
+##            print(u_dm)
+##            
+##        mc.set_displacement(u_dm, mirror)
+##
+##        raw_input("remove piece of paper and adjust")
+##        time.sleep(0.2)
+##        int_cam.snapImage()
+##        image_i0 = int_cam.getImage().astype(float)
+##        PIL.Image.fromarray(image_i0).save(folder_name + "interferogram_0.tif")
+##
+##        raw_input("re-cover ref mirror!")
+##        sh.snapImage()
+##        dist_image = sh.getImage().astype('float')
+##        PIL.Image.fromarray(dist_image).save(folder_name + "dist_image.tif")
+##
+##        raw_input("cover DM for new mirror reference")
+##        sh.snapImage()
+##        image_ref_mirror = sh.getImage().astype(float)
+##        PIL.Image.fromarray(image_ref_mirror).save(folder_name + "image_ref_mirror.tif")
+##
+####        this would be a new zero_pos_dm, might be needed, but would be the same as image_ref_mirror
+####        sh.snapImage()
+####        zero_pos_dm = sh.getImage().astype(float)
+####        PIL.Image.fromarray(zero_pos_dm).save(folder_name + "zero_pos_dm.tif")
+##
+##        raw_input("tip and tilt 1")
+##        time.sleep(1)
+##        int_cam.snapImage()
+##        image_i1 = int_cam.getImage().astype(float)
+##        PIL.Image.fromarray(image_i1).save(folder_name + "interferogram_1.tif")
+##
+##        raw_input("tip and tilt 2")
+##        time.sleep(1)
+##        int_cam.snapImage()
+##        image_i2 = int_cam.getImage().astype(float)
+##        PIL.Image.fromarray(image_i2).save(folder_name + "interferogram_2.tif")
+##
+##        raw_input("tip and tilt 3")
+##        time.sleep(1)
+##        int_cam.snapImage()
+##        image_i3 = int_cam.getImage().astype(float)
+##        PIL.Image.fromarray(image_i3).save(folder_name + "interferogram_3.tif")
+##
+##        raw_input("tip and tilt 4")
+##        time.sleep(1)
+##        int_cam.snapImage()
+##        image_i4 = int_cam.getImage().astype(float)
+##        PIL.Image.fromarray(image_i4).save(folder_name + "interferogram_4.tif")
+##
+##    else:
+    ### import images
+    image_ref_mirror = np.array(PIL.Image.open(folder_name + "image_ref_mirror.tif"), dtype = 'float')
+    zero_pos_dm = np.array(PIL.Image.open(folder_name + "zero_pos_dm.tif"), dtype = 'float')
+    dist_image = np.array(PIL.Image.open(folder_name + "dist_image.tif"), dtype = 'float')
+    flat_wf = np.array(PIL.Image.open(folder_name + "flat_wf.tif"), dtype = 'float')
+
+    image_i0 = np.array(PIL.Image.open(folder_name + "interferogram_0.tif"), dtype = 'float')
+    image_i1 = np.array(PIL.Image.open(folder_name + "interferogram_1.tif"), dtype = 'float')
+    image_i2 = np.array(PIL.Image.open(folder_name + "interferogram_2.tif"), dtype = 'float')
+    image_i3 = np.array(PIL.Image.open(folder_name + "interferogram_3.tif"), dtype = 'float')
+    image_i4 = np.array(PIL.Image.open(folder_name + "interferogram_4.tif"), dtype = 'float')
+
+    sh_spots = np.dstack((image_ref_mirror, zero_pos_dm, dist_image))        
+    interferograms = np.dstack((image_i0, image_i1, image_i2, image_i3, image_i4))
+    if flip_ask == True:
+        flip = raw_input("flip interferograms?")
+        if flip == 'y':
+            flip = True
+    ##        interferograms = np.fliplr(interferograms)
+    ##        image_i0 = np.fliplr(image_i0)
+        else:
+            flip = False
+    else:
+        flip = True
+    for i in range(5):
+        interferograms[..., i] = np.flipud(interferograms[..., i])
+
+    ### allocate space
+    indices_id = np.arange(1, interferograms.shape[-1])
+    id_shape = list(interferograms.shape[0:2])
+    id_shape.append(interferograms.shape[-1] -1)
+    Id_tot = np.zeros(id_shape)
+##    int_0_tile = np.tile(interferograms[...,0], (interferograms.shape[-1] -1, 1, 1)).transpose(1,2,0)
+##    assert(np.allclose(interferograms[...,0], int_0_tile[...,1]))
+##
+##    #Id_tot = interferograms[..., indices_id] - int_0_tile
+
+    ### difference of interferograms Id
+    for i in range(4):
+        Id_tot[...,i] = interferograms[..., i+1] - interferograms[..., 0]
+
+    ## make coordinate systems and initialize matrices
+    ny, nx = interferograms[...,0].shape
+    x, y = np.linspace(0., 2. * radius, 2*radius), np.linspace(0., 2. * radius, 2 * radius)
+    xx, yy = np.meshgrid(x, y)
+##    ss = np.sqrt(xx**2 + yy**2)
+
+    Id_int = np.zeros((2*radius, 2*radius, Id_tot.shape[-1]))
+    Id_zeros = np.zeros(Id_int.shape, dtype = float)
+##    [ny, nx] = interferograms[...,0].shape
+    flipped_y0 = ny - y0
+    flipped_x0 = x0
+
+    ### Place interesting part of difference interferograms in matrix and find the zeros
+    Id_int = Id_tot[flipped_y0-radius:flipped_y0+radius, flipped_x0-radius:flipped_x0+radius, :]
+    zeros_i = np.abs(Id_int) <= 2
+    Id_zeros[zeros_i] = 1
+
+    ### mask out everything outside the radius
+    mask = [np.sqrt((xx-radius) ** 2 + (yy-radius) ** 2) >= radius]
+    mask_tile = np.tile(mask, (Id_zeros.shape[-1],1,1)).T
+    Id_zeros_mask = np.ma.array(Id_zeros, mask=mask_tile)
+
+    ### make Hough transform of all points
+    #Initialize constants
+    width, height = Id_int[...,0].shape
+    num_thetas = 200
+    diag_len = np.ceil(np.sqrt(width * width + height * height)).astype(int)
+    Acc = np.zeros((2 * diag_len, num_thetas, 4), dtype=np.uint64)
+    Lambda = np.zeros(4)
+    ti = np.zeros((2,4))
+    sigma = np.zeros(4)
+    x_shape = list(xx.shape)
+    x_shape.append(4)
+    tau_i = np.zeros(x_shape)
+    delta_i = np.zeros(tau_i.shape)
+    Id_hat = np.zeros(Id_int.shape)
+    theta_max = np.zeros(4)
+    sin_diff = np.zeros(tau_i.shape)
+    s_max = np.zeros(4)
+    peak_indicess = list()
+
+    print("making hough transforms... crunch crunch")
+    for jj in range(4):
+##        plt.imshow(Id_zeros_mask[..., jj], origin = 'lower')
+##        plt.show()
+        Acc[...,jj], rhos, thetas, diag_len = hough_numpy(Id_zeros_mask[..., jj], x, y)
+        print("Hough transform " + str(jj+1) + " done!")
+        theta_max[jj], s_max[jj], theta_max_index, peak_indices = max_finding(Acc[...,jj], rhos, thetas, minheight = min_height, lookahead = look_ahead)
+        peak_indicess.append(peak_indices)
+        ## uncomment to check if peaks align with found peaks visually
+        if show_hough_peaks == True:
+            f2, axarr2 = plt.subplots(2,1)
+            axarr2[0].imshow(Acc[...,jj].T, cmap = 'bone')
+            axarr2[0].scatter(peak_indices, np.tile(theta_max_index, len(peak_indices)))
+            axarr2[1].plot(rhos, Acc[:, theta_max_index, jj])
+            dtct = axarr2[1].scatter(rhos[peak_indices], Acc[peak_indices, theta_max_index, jj], c = 'r')
+            plt.show()
+        Lambda[jj] = np.sum(np.diff(rhos[peak_indices]), dtype=float) / (len(peak_indices)-1.0)
+    
+    ## make tile lists to compute 3d matrices in a numpy way
+    ti_tile = list(Id_hat[...,0].shape)
+    ti_tile.append(1)
+    xx_tile = list(Id_hat[0,0,:].shape)
+    xx_tile.append(1)
+    xx_tile.append(1)
+
+    ## Compute Id_hat in a numpy way
+    ti = (2 * np.pi/ Lambda) * np.array([np.cos(theta_max), np.sin(theta_max)])
+    sigma = 2 * np.pi * s_max / Lambda
+    tau_i = np.tile(ti[0, :], ti_tile)  * np.tile(xx, xx_tile).transpose(1,2,0) + np.tile(ti[1, :], ti_tile) * np.tile(yy, xx_tile).transpose(1,2,0)
+    assert(np.all(np.tile(ti[0, :], ti_tile)[:, :, 0] == ti[0,0]))
+    delta_i = (tau_i - sigma)/2.0
+    sin_diff = np.sin(delta_i)
+    Id_hat = Id_int/(-2.0 * sin_diff)
+
+    if save_id_hat == True:
+        np.save(folder_name + "id_hat.npy", Id_hat)
+
+    for i in range(Id_hat.shape[-1]):
+        Id_hat[...,i] = ndimage.median_filter(Id_hat[...,i], k_I)
+
+    if show_id_hat == True:
+        print("thetas: " + str(theta_max))
+        print("distances: " + str(s_max))
+        print("lambda: " + str(Lambda))
+        zeros_sin = np.abs(sin_diff) <= 0.07
+        sin_zeros = np.zeros(sin_diff.shape)
+        sin_zeros[zeros_sin] = 1
+        f, ax = plt.subplots(3,4, sharex = True, sharey = True)
+        x_plot = np.linspace(0., 2.*radius, 300)
+        titles_hat = [r'$I_{d, ' + str(i) + '}$' for i in range(4)]
+        for i in range(4):
+            ax[0,i].imshow(np.ma.array(Id_zeros[..., i], mask = mask), vmin = 0, vmax = 1, origin = 'lower')
+            ax[1,i].imshow(np.ma.array(sin_zeros[..., i], mask = mask), vmin = 0, vmax = 1, origin = 'lower')
+            ax[2,i].imshow(np.ma.array(Id_hat[..., i], mask = mask), vmin = -255, vmax = 255, origin = 'lower')
+            ax[0, i].set_title(titles_hat[i])
+#            print(rhos[peak_indicess[i]])
+            for ii in range(len(peak_indicess[i])):
+                y_plot = -1.*np.tan(np.pi/2. - theta_max[i]) * (x_plot - rhos[peak_indicess[i][ii]]/np.cos(theta_max[i]))
+                ax[0,i].plot(x_plot, y_plot)     
+                ax[1,i].plot(x_plot, y_plot)
+        ax[1,-1].set_xlim([0, 2*radius])
+        ax[1,-1].set_ylim([0, 2*radius])
+        plt.show()
+
+    ### allocate memory
+    nmbr_inter = Id_zeros.shape[-1] #number of interferogram differences
+    Un_sol = np.triu_indices(nmbr_inter, 1) #indices of unique phase retrievals. upper triangular indices, s.t. 12 and 21 dont get counted twice
+    shape_unwrp = list(Id_zeros.shape[:2])
+    shape_unwrp.append(len(Un_sol[0])) #square by amount of solutions
+##    Unwr_mat = np.zeros(shape_unwrp)
+    angfact = np.zeros(shape_unwrp)
+    atany = np.zeros(shape_unwrp)
+    atanx = np.zeros(shape_unwrp)
+    org_phase = np.zeros(shape_unwrp)
+##    org_phase_plot = np.zeros(shape_unwrp)
+##    org_unwr = np.zeros(shape_unwrp)
+
+    #phase extraction
+    angfact = delta_i[..., Un_sol[1]] - delta_i[..., Un_sol[0]]
+    atany = Id_hat[..., Un_sol[0]]
+    atanx = (Id_hat[..., Un_sol[1]] - np.cos(angfact) * Id_hat[..., Un_sol[0]]) / np.sin(angfact) ## sin needs to be added here for arctan2 to know the correct sign of y and x
+
+    for k in range(len(Un_sol[0])):
+        org_phase[..., k] = np.arctan2(atany[..., k], atanx[..., k])
+
+    return org_phase, delta_i, sh_spots, image_i0, flat_wf, flip
+
+
+### --- test cases
+##x, y = np.arange(0, 100), np.arange(0, 100)
+##xx, yy = np.meshgrid(x, y)
+##img = np.rot90(np.eye(len(x), k = 30), k = 0)
+##Acc, rhos, thetas, diag_len = hough_numpy(img, x, y)
+##min_height = 0
+##look_ahead = 1
+##theta_max, s_max, theta_max_index, peak_indices = max_finding(Acc, rhos, thetas, minheight = min_height, lookahead = look_ahead)
+##f, ax = plt.subplots()
+##ax.imshow(img, origin = 'lower')
+##y_plot = -1 * np.tan(np.pi/2. - theta_max) * (x - rhos[peak_indices[0]]/np.cos(theta_max))
+##ax.plot(x, y_plot)
+##plt.show()

@@ -20,7 +20,7 @@ def rms_piston(piston, *args):
     return rms
 
 
-folder_name = "20170117_astigmatism/"
+folder_name = "20170125_astigmatism/"
 ### predetermined constants
 x0 = 550
 y0 = 484
@@ -228,36 +228,36 @@ flipint = False
 ##axes[1].set_title(r'Reconstruction', fontsize = 7)
 ##f.savefig(folder_name + "overlay_rms_presentation.png", dpi = dpi_num, bbox_inches = 'tight')
 ##
-##image_ref_mirror = np.array(PIL.Image.open(folder_name + "image_ref_mirror.tif"))
-##dist_image = np.array(PIL.Image.open(folder_name + "dist_image.tif"))
-##zero_pos_dm = np.array(PIL.Image.open(folder_name + "zero_pos_dm.tif"))
-##vars_janss = np.load(folder_name + "vars_dictionary.npy").item()
-##vars_janss = vars_janss['vars_janss']
-##centre_op = [vars_janss[1], vars_janss[2]]
-##rad_op = vars_janss[3]
+image_ref_mirror = np.array(PIL.Image.open(folder_name + "image_ref_mirror.tif"))
+dist_image = np.array(PIL.Image.open(folder_name + "dist_image.tif"))
+zero_pos_dm = np.array(PIL.Image.open(folder_name + "zero_pos_dm.tif"))
+vars_janss = np.load(folder_name + "vars_dictionary.npy").item()
+vars_janss = vars_janss['vars_janss']
+centre_op = [vars_janss[1], vars_janss[2]]
+rad_op = vars_janss[3]
+
+[ny,nx] = dist_image.shape
+x = np.linspace(1, nx, nx)
+y = np.linspace(1, ny, ny)
+xx, yy = np.meshgrid(x, y)
+
+x_pos_zero, y_pos_zero = Hm.zero_positions(zero_pos_dm)
+x_pos_flat, y_pos_flat = Hm.centroid_positions(x_pos_zero, y_pos_zero, image_ref_mirror, xx, yy)
+x_pos_dist, y_pos_dist = Hm.centroid_positions(x_pos_zero, y_pos_zero, dist_image, xx, yy)
+centre = Hm.centroid_centre(x_pos_flat, y_pos_flat)
 ##
-##[ny,nx] = dist_image.shape
-##x = np.linspace(1, nx, nx)
-##y = np.linspace(1, ny, ny)
-##xx, yy = np.meshgrid(x, y)
-##
-##x_pos_zero, y_pos_zero = Hm.zero_positions(zero_pos_dm)
-##x_pos_flat, y_pos_flat = Hm.centroid_positions(x_pos_zero, y_pos_zero, image_ref_mirror, xx, yy)
-##x_pos_dist, y_pos_dist = Hm.centroid_positions(x_pos_zero, y_pos_zero, dist_image, xx, yy)
-##centre = Hm.centroid_centre(x_pos_flat, y_pos_flat)
-##
-##f, ax = plt.subplots(1,1, figsize = (4.98, 4.98))
-##ax.scatter(x_pos_dist, y_pos_dist)
-##ax.scatter(centre[0], centre[1], c = 'k')
-##circle1 = plt.Circle((centre[0], centre[1]), 330, color = 'k', fill = False)
-##ax.set_xlabel('px')
-##ax.set_ylabel('px')
-##ax.add_artist(circle1)
-##f.savefig(folder_name + "presentation_radius_initial.png", dpi = dpi_num, bbox_inches = 'tight')
+f, ax = plt.subplots(1,1, figsize = (4.98, 4.98))
+ax.scatter(x_pos_dist, y_pos_dist)
+ax.scatter(centre[0], centre[1], c = 'k')
+circle1 = plt.Circle((centre[0], centre[1]), 330, color = 'k', fill = False)
+ax.set_xlabel('x [px]')
+ax.set_ylabel('y [px]')
+ax.add_artist(circle1)
+f.savefig(folder_name + "presentation_radius_initial.png", dpi = dpi_num, bbox_inches = 'tight')
 ##ax.scatter(centre_op[0], centre_op[1], c = 'r')
-##circle2 = plt.Circle((centre_op[0], centre_op[1]), rad_op, color = 'r', fill = False)
-##ax.add_artist(circle2)
-##f.savefig(folder_name+ "presentation_radius_op.png", dpi = dpi_num, bbox_inches = 'tight')
+circle2 = plt.Circle((centre[0], centre[1]), 300, color = 'r', fill = False)
+ax.add_artist(circle2)
+f.savefig(folder_name+ "presentation_radius_op.png", dpi = dpi_num, bbox_inches = 'tight')
 ##
 #### Given paramters for centroid gathering
 ##px_size_sh = 5.2e-6     # width of pixels
@@ -296,5 +296,5 @@ flipint = False
 ##
 ##f.savefig(folder_name + "sh_optimization_presentation.png", dpi = dpi_num, bbox_inches = 'tight')
 
-Zn.plot_zernike(j_max, a_inter)
+##Zn.plot_zernike(j_max, a_inter)
 plt.show()

@@ -13,6 +13,9 @@ from matplotlib import cm
 import edac40
 
 def set_displacement(u_dm, mirror):
+    """ given the displacement vector u_dm (size = actuators, range = (-1, 1))
+    sets the mirror voltages
+    """
     u_dm = u_dm * 72.0
     u_l = np.zeros(u_dm.shape)
     u_l = np.maximum(u_dm, -72.0 * np.ones(u_l.shape))
@@ -26,6 +29,9 @@ def set_displacement(u_dm, mirror):
     mirror.set(u_l)
 
 def gather_displacement_matrix(mirror, sh, x_pos_zero, y_pos_zero):
+    """given the mirror, the shack-hartmann sensor camera object sh and the zero postions of the spots
+    returns the displacement matrix characterizing how each acuator influences the spot displacements
+    """
     raw_input('block reference mirror!')
     actuators = 19
     u_dm_0 = np.zeros(actuators)

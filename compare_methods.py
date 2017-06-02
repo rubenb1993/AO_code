@@ -1,3 +1,6 @@
+""" Use only for data from old setup
+this script is not well commented. See SLM script for better idea of whats going on"""
+
 import sys
 ##import os
 import time

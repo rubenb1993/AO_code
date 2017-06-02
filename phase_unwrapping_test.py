@@ -295,6 +295,10 @@ def picard_it(c, c_weighted, k_max, Q, A, N):
     return phi
 
 def filter_wrapped_phase(image, k):
+    """ filter the wrapped phase (image) with a k x k averaging window
+    implemented in a pythonic way
+    Certain spots are not filled in, but with a small enough k these will be outside of the circle anyway
+    """
     ny, nx = image.shape
     assert(ny == nx) ## assert a square image for simplicity
     if (k%2 == 0):
@@ -416,10 +420,27 @@ def butter_filter(image, n, f0):
     phase_filt = np.arctan2(sin_filt, cos_filt)
     return phase_filt
 
-def butter_filter_unwrapped(image, n, f0):
+def butter_filter_unwrapped(image, n, f0, pad = False):
+    """ Filters an unwrapped image using a buttworth filter of order n and cut-off frequency f0
+    if pad == True, padding will be done by this function
+    returns smoothed image
+    """
+    if pad == True:
+        res = [2**kji for kji in range(15)]
+        N_int_x = image.shape[1]
+        N_int_y = image.shape[0]
+        nx_pad = np.where(res > np.tile(N_int_x, len(res)))
+        nx_pad = res[nx_pad[0][0]]
+        ny_pad = np.where(res > np.tile(N_int_y, len(res)))
+        ny_pad = res[ny_pad[0][0]]
+        dif_x = (nx_pad - N_int_x)/2
+        dif_y = (ny_pad - N_int_y)/2
+        orig_shape = image.shape
+        image = np.lib.pad(image, ((dif_y, dif_y), (dif_x, dif_x)), 'reflect')
+    
     [ny, nx] = image.shape
     dx = 2.0/nx
-    dy = 2.0/nx
+    dy = 2.0/ny
     dfx = 0.5
     dfy = 0.5
     fx = np.arange(-0.5/dx, 0.5/dx, dfx)
@@ -428,9 +449,20 @@ def butter_filter_unwrapped(image, n, f0):
     shift = np.exp(-2*np.pi*1j*(FX+FY))
     butt_filt = 1/(1 + ( np.sqrt(FX**2 + FY**2)/f0)**(2*n))
     ft_img = shift * np.fft.fftshift(np.fft.fft2(image))
-    return np.real(np.fft.ifftshift(np.fft.ifft2(butt_filt * ft_img))/ shift)
+    
+    buttered = np.real(np.fft.ifftshift(np.fft.ifft2(butt_filt * ft_img))/ shift)
+    if pad == True:
+        assert(buttered[dif_y: ny_pad - dif_y, dif_x:nx_pad - dif_x].shape == orig_shape)
+        return buttered[dif_y: ny_pad - dif_y, dif_x:nx_pad - dif_x]
+    else:
+        assert(buttered.shape == image.shape)
+        return buttered
     
 def phase_derivative_var_map(image, k):
+    """ Calculates the phase derivative variance zmn of a wrapped and noisy phase
+    Can be a good measure of noisy pixels within the wrapped phase
+    Based on equation 3.12 of "D.C. Ghiglia and M.D. Pritt, Two-dimensional phase unwrapping: theory, algorithms and software, volume 4. Wiley New York, 1998"
+    """
     dx_phase = delta_x(image)
     dy_phase = delta_y(image)
 
@@ -521,29 +553,12 @@ def phase_derivative_var_map(image, k):
         avg_x_tile, avg_y_tile = np.tile(avg_x, (right_coords.shape[1], 1)).T, np.tile(avg_y, (right_coords.shape[1], 1)).T
         sum_x, sum_y = np.sum(np.square(dx_phase[unrav_coords] - avg_x_tile), axis = 1), np.sum(np.square(dy_phase[unrav_coords] - avg_y_tile), axis = 1)
         zmn[np.unravel_index(right, (N, N))] = (np.sqrt(sum_x) + np.sqrt(sum_y)) / (k**2)
-##        
-##        ## calculate boundaries diagonals
-##        left_t, right_t, left_b, right_b = (i, i), (i, -1 -i), (-1 - i, i), (-1 - i, -1 - i)       
-##        left_t, right_t, left_b, right_b = (jj[left_t], ii[left_t]), (jj[right_t], ii[right_t]), (jj[left_b], ii[left_b]), (jj[right_b], ii[right_b])
-##        left_t, right_t, left_b, right_b = np.ravel_multi_index(left_t, (N, N)), np.ravel_multi_index(right_t, (N, N)), np.ravel_multi_index(left_b, (N, N)), np.ravel_multi_index(right_b, (N, N))
-##        coord_mat = krange_tile + k_tile
-##        coords_add_lt, coords_add_rt, coords_add_lb, coords_add_rb = coord_mat[(k/2)-i:, (k/2)-i:].flatten(), coord_mat[(k/2)-i:, :(k/2)+1+i].flatten(), coord_mat[:(k/2)+i+1, (k/2)-i:].flatten(), coord_mat[:(k/2)+i+1, :(k/2)+i+1].flatten()
-##        coords_add_tot = np.vstack((coords_add_lt, coords_add_rt, coords_add_lb, coords_add_rb))
-##        lt_tile, rt_tile, lb_tile, rb_tile = np.tile(left_t, (coords_add_lt.shape[0],1)).T, np.tile(right_t, (coords_add_lt.shape[0],1)).T, np.tile(left_b, (coords_add_lt.shape[0],1)).T, np.tile(right_b, (coords_add_lt.shape[0],1)).T
-##        coords_tile_tot = np.squeeze(np.stack((lt_tile, rt_tile, lb_tile, rb_tile)))
-##        coords_tot = coords_add_tot + coords_tile_tot
-##        unrav_coords = np.unravel_index(coords_tot, (N, N))
-##        sum_sin_diag = np.sum(np.sin(image[unrav_coords]), axis = 1)
-##        sum_cos_diag = np.sum(np.cos(image[unrav_coords]), axis = 1)
-##        psi_diag = np.arctan(sum_sin_diag, sum_cos_diag)
-##        filt_psi[np.unravel_index(np.stack((left_t, right_t, left_b, right_b)), (N, N))] = psi_diag
-
 
     return zmn
 
 
 
-####### set up physical constants and a test phase
+######### set up physical constants and a test phase
 ##x, y = np.linspace(-1, 1, 512), np.linspace(-1, 1, 512)
 ##xx, yy = np.meshgrid(x, y)
 ##phase =  10 * ((xx + 0.1)**2 + (yy - 0.1)**2)
@@ -635,7 +650,7 @@ def phase_derivative_var_map(image, k):
 ##
 ##
 ##dx_phase, dy_phase = delta_x(unfilter_phase), delta_y(unfilter_phase)
-##qual_map = phase_derivative_var_map(dx_phase, dy_phase, 5)
+##qual_map = phase_derivative_var_map(unfilter_phase, 5)
 ##
 ##f, ax = plt.subplots(1,2)
 ##ax[0].imshow(unfilter_phase, cmap = 'bone', vmin = -np.pi, vmax = np.pi)

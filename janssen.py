@@ -19,9 +19,9 @@ import os
 import time
 if "C:\Program Files\Micro-Manager-1.4" not in sys.path:
     sys.path.append("C:\Program Files\Micro-Manager-1.4")
-import mirror_control as mc
+##import mirror_control as mc
 import edac40
-import MMCorePy
+##import MMCorePy
 import PIL.Image
 import Hartmann as Hm
 import Zernike as Zn
@@ -35,141 +35,71 @@ def cart2pol(x, y):
     phi = np.arctan2(y, x)
     return rho, phi
 
-def avg_complex_zernike(x_pos_norm, y_pos_norm, j_max, r_int_px, spot_size = 35):
+def avg_complex_zernike(x_pos_norm, y_pos_norm, n_max, r_sh_px, order, spot_size = 35, integration_spots = 70):
     """Given the meshgrids for x and y, and given the maximum fringe order, complex zernike retursn
     an (len(x), len(y), j_max) sized matrix with values of the complex Zernike polynomial at the given points"""
-    half_len_box = spot_size/float(r_int_px)
-    box_px = 2*spot_size
+    half_len_box = spot_size/float(r_sh_px)
     x_left = x_pos_norm - half_len_box
     x_right = x_pos_norm + half_len_box
     y_up = y_pos_norm + half_len_box
     y_down = y_pos_norm - half_len_box
-    j_range = np.arange(1, j_max+2)
-    Cnm_avg = np.zeros((len(x_pos_norm), len(j_range)), dtype = np.complex_)
+##    j = Zn.max_n_to_j(n_max, order= order)[str(n_max)]
+    j = np.insert(Zn.max_n_to_j(n_max, order = order)[str(n_max)], 0, 1)
+    Cnm_avg = np.zeros((len(x_pos_norm), len(j)), dtype = np.complex_)
     for ii in range(len(x_pos_norm)):
-        x, y = np.linspace(x_left[ii], x_right[ii], box_px), np.linspace(y_down[ii], y_up[ii], box_px)
+        x, y = np.linspace(x_left[ii], x_right[ii], integration_spots), np.linspace(y_down[ii], y_up[ii], integration_spots)
         xx, yy = np.meshgrid(x, y)
         mask = [xx**2 + yy**2 >= 1]
-        Cnm_xy = Zn.complex_zernike(j_max, xx, yy)
+        Cnm_xy = Zn.complex_zernike(n_max, xx, yy, order)
         tiled_mask = np.tile(mask, (Cnm_xy.shape[2],1,1)).T
         Cnm_mask = np.ma.array(Cnm_xy, mask = tiled_mask)
         Cnm_avg[ii,:] = Cnm_mask.mean(axis = (0,1))
     return Cnm_avg
 
+def coeff_from_dist(x_pos_flat_f, y_pos_flat_f, x_pos_dist_f, y_pos_dist_f, x_pos_norm_f, y_pos_norm_f, px_size_sh, f_sh, r_sh_m, wavelength, n_max, r_sh_px, box_len, order):
+    dWdx, dWdy = Hm.centroid2slope(x_pos_dist_f, y_pos_dist_f, x_pos_flat_f, y_pos_flat_f, px_size_sh, f_sh, r_sh_m, wavelength)
 
-def coeff(x_pos_zero, y_pos_zero, zero_image, dist_image, px_size, f, r_sh_m, j_max, wavelength):
-    ## Given paramters for centroid gathering
-    
-    [ny,nx] = zero_image.shape
-    r_sh_px = r_sh_m / px_size
-    x = np.linspace(1, nx, nx)
-    y = np.linspace(1, ny, ny)
-    xx, yy = np.meshgrid(x, y)
-    x_pos_flat, y_pos_flat = Hm.centroid_positions(x_pos_zero, y_pos_zero, zero_image, xx, yy)
-
-    centre = Hm.centroid_centre(x_pos_flat, y_pos_flat)
-    x_pos_norm = ((x_pos_flat - centre[0]))/r_sh_px
-    y_pos_norm = ((y_pos_flat - centre[1]))/r_sh_px
-
-##    sh.snapImage()
-##    dist_image = sh.getImage().astype(float)
-
-    # Gather centroids and slope
-    x_pos_dist, y_pos_dist = Hm.centroid_positions(x_pos_flat, y_pos_flat, dist_image, xx, yy)
-    dWdx, dWdy = Hm.centroid2slope(x_pos_dist, y_pos_dist, x_pos_flat, y_pos_flat, px_size, f, r_sh_m, wavelength)
-    r_int_px = r_sh_m/px_size
-    
     # Make Zernike matrix
-    kmax = np.power(np.ceil(np.sqrt(j_max)),2) #estimation of maximum fringe number
-    n, m = Zn.Zernike_j_2_nm(np.array(range(1, int(kmax)+1))) #find n and m pairs for maximum fringe number
-    Kmax = np.max(Zn.Zernike_nm_2_j(n+1, np.abs(m)+1)) #find highest order of j for which beta is needed
-    Z_mat = avg_complex_zernike(x_pos_norm, y_pos_norm, Kmax, r_int_px)
+    j = Zn.max_n_to_j(n_max, order = order)[str(n_max)]
+    j_fit_janss = Zn.max_n_to_j(n_max-1, order = order)[str(n_max-1)]
+    compl_Z_mat = avg_complex_zernike(x_pos_norm_f, y_pos_norm_f, n_max, r_sh_px, order, spot_size = box_len)
 
     #Invert and solve for beta
     dW_plus = dWdx + 1j * dWdy
     dW_min = dWdx - 1j * dWdy
-    beta_plus = lin.lstsq(Z_mat, dW_plus)[0]
-    beta_min = lin.lstsq(Z_mat, dW_min)[0]
+    beta_plus = np.linalg.lstsq(compl_Z_mat, dW_plus)[0]
+    beta_min = np.linalg.lstsq(compl_Z_mat, dW_min)[0]
 
-    kmax = int(kmax)
+##    beta_plus = np.insert(beta_plus, 0, 0.0+ 1j*0)
+##    beta_min = np.insert(beta_min, 0, 0.0 + 1j*0)
+    
+    a_compl_janss = np.zeros(len(j), dtype = np.complex_)
+    a_real_janss = np.zeros(len(j_fit_janss), dtype = np.complex_)
 
-    a = np.zeros(kmax, dtype = np.complex_)
-    a_check = np.zeros(j_max, dtype = np.complex_)
-    #a_avg = np.zeros(j_max, dtype = np.complex_)
-    for jj in range(2, kmax+1):
-        n, m = Zn.Zernike_j_2_nm(jj)
-        index1 = int(Zn.Zernike_nm_2_j(n - 1.0, m + 1.0) - 1)
-        index2 = int(Zn.Zernike_nm_2_j(n - 1.0, m - 1.0) - 1)
-        index3 = int(Zn.Zernike_nm_2_j(n + 1.0, m + 1.0) - 1)
-        index4 = int(Zn.Zernike_nm_2_j(n + 1.0, m - 1.0) - 1)
+    for jj in range(2, len(j_fit_janss)+2):
+        n, m = Zn.Zernike_j_2_nm(jj, ordering = order)
+        index1 = int(Zn.Zernike_nm_2_j(n - 1.0, m + 1.0, ordering = order) - 1)
+        index2 = int(Zn.Zernike_nm_2_j(n - 1.0, m - 1.0, ordering = order) - 1)
+        index3 = int(Zn.Zernike_nm_2_j(n + 1.0, m + 1.0, ordering = order) - 1)
+        index4 = int(Zn.Zernike_nm_2_j(n + 1.0, m - 1.0, ordering = order) - 1)
         fact1 = 1.0 / ( 2 * n * ( 1 + (n != abs(m))))
         fact2 = 1.0 / (2 * (n+2) * ( 1 + (((n+2) != abs(m)))))
         if m + 1.0 > n - 1.0:
-            a[jj-1] = fact1 * (beta_min[index2]) - fact2 * (beta_plus[index3] + beta_min[index4])
+            a_compl_janss[jj-2] = fact1 * (beta_min[index2]) - fact2 * (beta_plus[index3] + beta_min[index4])
         elif np.abs(m - 1.0) > np.abs(n - 1.0):
-            a[jj-1] = fact1 * (beta_plus[index1]) - fact2 * (beta_plus[index3] + beta_min[index4])
+            a_compl_janss[jj-2] = fact1 * (beta_plus[index1]) - fact2 * (beta_plus[index3] + beta_min[index4])
         else:
-            a[jj-1] = fact1 * (beta_plus[index1] + beta_min[index2]) - fact2 * (beta_plus[index3] + beta_min[index4])
+            a_compl_janss[jj-2] = fact1 * (beta_plus[index1] + beta_min[index2]) - fact2 * (beta_plus[index3] + beta_min[index4])
 
-    for jj in range(2, j_max+2):
-        n, m = Zn.Zernike_j_2_nm(jj)
+    for jj in range(2, len(j_fit_janss)+2):
+        n, m = Zn.Zernike_j_2_nm(jj, ordering = order)
         if m > 0:
-            j_min = int(Zn.Zernike_nm_2_j(n, -m))
-            a_check[jj-2] = (1.0/np.sqrt(2*n+2))*(a[jj-1] + a[j_min-1])
+            j_min = int(Zn.Zernike_nm_2_j(n, -m, ordering = order))
+            a_real_janss[jj-2] = (1.0/np.sqrt(2*n+2))*(a_compl_janss[jj-2] + a_compl_janss[j_min-2])
         elif m < 0:
-            j_plus = int(Zn.Zernike_nm_2_j(n, np.abs(m)))
-            a_check[jj-2] = (1.0/np.sqrt(2*n+2)) * (a[j_plus - 1] - a[jj-1]) * 1j
+            j_plus = int(Zn.Zernike_nm_2_j(n, np.abs(m), ordering = order))
+            a_real_janss[jj-2] = (1.0/np.sqrt(2*n+2)) * (a_compl_janss[j_plus - 2] - a_compl_janss[jj-2]) * 1j
         else:
-            a_check[jj-2] = (1.0/np.sqrt(n+1)) * a[jj-1]
-    return np.real(a_check)  
-
-def coeff_optimum(x_pos_flat, y_pos_flat, x_pos_norm, y_pos_norm, xx, yy, dist_image, image_control, px_size, f, r_sh_m, wavelength, j_max):
-    # Gather centroids and slope
-    x_pos_dist, y_pos_dist = Hm.centroid_positions(x_pos_flat, y_pos_flat, dist_image, xx, yy)
-    x_pos_dist, y_pos_dist = mc.filter_nans(x_pos_dist, y_pos_dist)
-    dWdx, dWdy = Hm.centroid2slope(x_pos_dist, y_pos_dist, x_pos_flat, y_pos_flat, px_size, f, r_sh_m, wavelength)
-    r_int_px = r_sh_m / px_size
-
-    # Make Zernike matrix
-    kmax = np.power(np.ceil(np.sqrt(j_max)),2) #estimation of maximum fringe number
-    n, m = Zn.Zernike_j_2_nm(np.array(range(1, int(kmax)+1))) #find n and m pairs for maximum fringe number
-    Kmax = np.max(Zn.Zernike_nm_2_j(n+1, np.abs(m)+1)) #find highest order of j for which beta is needed
-    Z_mat = avg_complex_zernike(x_pos_norm, y_pos_norm, Kmax, r_int_px)
-
-    #Invert and solve for beta
-    dW_plus = dWdx + 1j * dWdy
-    dW_min = dWdx - 1j * dWdy
-    beta_plus = lin.lstsq(Z_mat, dW_plus)[0]
-    beta_min = lin.lstsq(Z_mat, dW_min)[0]
-
-    kmax = int(kmax)
-
-    a = np.zeros(kmax, dtype = np.complex_)
-    a_check = np.zeros(j_max, dtype = np.complex_)
-    #a_avg = np.zeros(j_max, dtype = np.complex_)
-    for jj in range(2, kmax+1):
-        n, m = Zn.Zernike_j_2_nm(jj)
-        index1 = int(Zn.Zernike_nm_2_j(n - 1.0, m + 1.0) - 1)
-        index2 = int(Zn.Zernike_nm_2_j(n - 1.0, m - 1.0) - 1)
-        index3 = int(Zn.Zernike_nm_2_j(n + 1.0, m + 1.0) - 1)
-        index4 = int(Zn.Zernike_nm_2_j(n + 1.0, m - 1.0) - 1)
-        fact1 = 1.0 / ( 2 * n * ( 1 + (n != abs(m))))
-        fact2 = 1.0 / (2 * (n+2) * ( 1 + (((n+2) != abs(m)))))
-        if m + 1.0 > n - 1.0:
-            a[jj-1] = fact1 * (beta_min[index2]) - fact2 * (beta_plus[index3] + beta_min[index4])
-        elif np.abs(m - 1.0) > np.abs(n - 1.0):
-            a[jj-1] = fact1 * (beta_plus[index1]) - fact2 * (beta_plus[index3] + beta_min[index4])
-        else:
-            a[jj-1] = fact1 * (beta_plus[index1] + beta_min[index2]) - fact2 * (beta_plus[index3] + beta_min[index4])
-
-    for jj in range(2, j_max+2):
-        n, m = Zn.Zernike_j_2_nm(jj)
-        if m > 0:
-            j_min = int(Zn.Zernike_nm_2_j(n, -m))
-            a_check[jj-2] = (1.0/np.sqrt(2*n+2))*(a[jj-1] + a[j_min-1])
-        elif m < 0:
-            j_plus = int(Zn.Zernike_nm_2_j(n, np.abs(m)))
-            a_check[jj-2] = (1.0/np.sqrt(2*n+2)) * (a[j_plus - 1] - a[jj-1]) * 1j
-        else:
-            a_check[jj-2] = (1.0/np.sqrt(n+1)) * a[jj-1]
-    return np.real(a_check)  
+            a_real_janss[jj-2] = (1.0/np.sqrt(n+1)) * a_compl_janss[jj-2]
+    a_real_janss = np.real(a_real_janss)
+    return a_real_janss

@@ -9,6 +9,7 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 import scipy.special as spec
 from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.colors as colors
+import sys
 
 def cart2pol(x, y):
     "returns polar coordinates given x and y"
@@ -21,38 +22,113 @@ def pol2cart(rho, phi):
     y = rho * np.sin(phi)
     return x, y
 
-def Zernike_j_2_nm(j):
+def max_n_to_j(n_max, order = None):
+    """ Converts a maximum index or array of maximum indices to a dictionary containing
+    argument = str(n_max)
+    value = numpy array containing all numbers between 2 and the maximum single index)
+    ordeer must be 'fringe' or 'brug'
+    """
+    if isinstance(n_max, int) or isinstance(n_max, float):
+        n_max = np.array([n_max])
+        m = np.copy(n_max)
+        j = {}
+        max_j = np.max([Zernike_nm_2_j(n_max[0], m[0], ordering = order), Zernike_nm_2_j(n_max[0], -1*m[0], ordering = order)])
+        j[str(n_max[0])] = np.arange(2, max_j+1)
+        return j
+    else:
+        m = np.copy(n_max)
+        j = {}
+        for ijk in range(len(n_max)):
+            max_j = np.max([Zernike_nm_2_j(n_max[ijk], m[ijk], ordering = order), Zernike_nm_2_j(n_max[ijk], -1*m[ijk], ordering = order)]) 
+            j[str(n_max[ijk])] = np.arange(2, max_j+1)
+        return j
+
+def convert_fringe_2_brug(a):
+    """ Take a fringe ordered zernike coefficient vector a
+    and return a brug ordered zernike coefficient vector
+    """
+    j = np.arange(2, len(a)+2)
+    n, m = Zernike_j_2_nm(j, ordering = 'fringe')
+    j_brug = Zernike_nm_2_j(n, m, ordering = 'brug')
+    index_brug = j_brug - 2
+    index_brug = index_brug.astype(int)
+    a_brug = np.zeros(len(max_n_to_j(np.max(n), order = 'brug')[str(np.max(n))]))
+    a_brug[index_brug] = a[j - 2]
+    return a_brug
+
+def Zernike_j_2_nm(j, ordering = None):
     """Converts Zernike index j (FRINGE convention) to index n and m. 
     Based on code by Dr. Ir. S. van Haver (who based it on Herbert Gross, Handbook of Optical Systems, page 215).
     input j: either scalar or an array (lists not supported)
     output n, m: either a scalar or an array of corresponding n and m.
     Built in additional check if j is integer. If not, n = -1 will be generated s.t. any zernike function will be 0"""
-    if (np.all(np.mod(j, 1) == 0)) and np.all(np.array(j) > 0): 
-        q = np.floor(np.sqrt(j-1.0))
-        p = np.floor((j - q**2 - 1.0)/2.0)
-        r = j - q**2 - 2*p
-        n = q+p
-        m = np.power(-1, r+1) * (q-p)
-        return n, m
-    else:
-        return -1, -1
+    try:
+        if ordering == 'brug' or ordering == 'Brug':
+            n = np.ceil(-1.5 + 0.5 * np.sqrt(1+ j*8)).astype(int)
+            m = 2 * j - (n*(n+2)) - 2
+            return n, m
+        elif ordering == 'fringe' or ordering == 'Fringe':
+            q = np.floor(np.sqrt(j-1.0))
+            p = np.floor((j - q**2 - 1.0)/2.0)
+            r = j - q**2 - 2*p
+            n = q+p
+            m = np.power(-1, r+1) * (q-p)
+            return n, m
+        else:
+            raise ValueError('ordering is not correct. Use Brug or Fringe')
+    except ValueError as err:
+        print(err.args)
+        return sys.exit(1)
 
-def Zernike_nm_2_j(n, m):
+def Zernike_nm_2_j(n, m, ordering = None):
     """Converts Zernike index j (FRINGE convention) to index n and m. 
     Based on code by Dr. Ir. S. van Haver (who based it on Herbert Gross, Handbook of Optical Systems, page 215).
     input n, m: either scalar or an array (lists not supported)
     output j: either a scalar or an array of corresponding j"""
-    p = (n + np.abs(m))/2.0
-    return p**2 + n - np.abs(m) + 1 + (m<0)
+    try:
+        if ordering == 'brug' or ordering == 'Brug':
+            p = (n*(n+2) + m)/2 + 1
+            return p
+        elif ordering == 'fringe' or ordering == 'Fringe':        
+            p = (n + np.abs(m))/2.0
+            return p**2 + n - np.abs(m) + 1 + (m<0)
+        else:
+            raise ValueError('ordering is not correct. Use Brug or Fringe')
+    except ValueError as err:
+        print(err.args)
+        return sys.exit(1)
     
-def Zernike_power_mat(j_max):
-    j_max = int(j_max)
-    n_max = np.max([Zernike_j_2_nm(j)[0] for j in range(j_max+1)]).astype(int) #find maximum n as n of j_max might not be the maximum n
-    fmat = np.zeros((n_max+1, n_max+1, j_max)) #allocate memory
-    for jj in range(j_max):
-        n, m_not_brug = Zernike_j_2_nm(jj+1) #brug uses different m, see later defined
+def Zernike_power_mat(n_max, order):
+    """Will create a matrix containing the poewrs for cartesian representation of zernike polynomials.
+    taken from H.H. van Brug. Efficient cartesian representation of zernike polynomials in computer memory
+    will create a matrix such that all zernikes of order n_max are represented. Fringe order will contain
+    more zernieks as Z_4^0 comes before Z_3^-3.
+
+    n_max = int
+    order = 'brug' or 'fringe'
+    """
+    try:
+        if order == 'brug' or order == 'Brug':
+            j = max_n_to_j(n_max, order = order)
+            j_max = np.max(j[str(n_max)]).astype(int)
+        elif order == 'fringe' or order == 'Fringe':
+            j_temp = max_n_to_j(n_max, order = order)
+            print(j_temp)
+            n_temp, m_temp = Zernike_j_2_nm(j_temp[str(n_max)], ordering = order)
+            j_max = np.max(j_temp[str(n_max)]).astype(int)
+            n_max = np.max(n_temp).astype(int)
+
+            #n_max = np.max([Zernike_j_2_nm(j, ordering = order)[0] for j in range(1,j_max+1)]).astype(int) #find maximum n as n of j_max might not be the maximum n
+        else:
+            raise ValueError('ordering is not correct. Use Brug or Fringe')
+    except ValueError as err:
+        print(err.args)
+        return sys.exit(1)
+
+    fmat = np.zeros((n_max+1, n_max+1, j_max-1)) #allocate memory
+    for jj in range(j_max-1):
+        n, m_not_brug = Zernike_j_2_nm(jj+2, ordering = order) #brug uses different m, see later defined
         l = -m_not_brug
-        
         if ( l > 0):
             p = 1
             q =  l/2.0 + 0.5 * (n%2.0) - 1.0
@@ -81,7 +157,7 @@ def Zernike_xy(x, y, power_mat, j):
     """Computes the value of Zj at points x and y
     in: x, y: coordinate matrices
     power_mat: the power matrix as made by Zernike_power_mat
-    j the fringe order of your polynomial
+    j the fringe order of your polynomial (should be same length as power_mat.shape[-1]
     out: Z, a matrix containing the values of Zj at points x and y
     
     Normalized s.t. int(|Z_j|^2) = pi/(n+1)"""
@@ -91,9 +167,9 @@ def Zernike_xy(x, y, power_mat, j):
     dim1.append(len(j))
     Z = np.zeros(dim1)
     for i in range(len(j)):
-        x_list, y_list = np.nonzero(power_mat[...,j[i]-1])
+        x_list, y_list = np.nonzero(power_mat[...,j[i]-2])
         for jj in range(len(x_list)):
-            Z[...,i] += power_mat[x_list[jj], y_list[jj], j[i]-1] * np.power(x, x_list[jj]) * np.power(y, y_list[jj])
+            Z[...,i] += power_mat[x_list[jj], y_list[jj], j[i]-2] * np.power(x, x_list[jj]) * np.power(y, y_list[jj])
     return Z
     
 def xder_brug(x, y, power_mat, j):
@@ -109,9 +185,9 @@ def xder_brug(x, y, power_mat, j):
     dim1.append(len(j))
     dZdx = np.zeros(dim1)
     for jj in range(len(j)):
-        x_list, y_list = np.nonzero(power_mat[...,j[jj]-1])
+        x_list, y_list = np.nonzero(power_mat[...,j[jj]-2])
         for i in range(len(x_list)):
-            dZdx[...,jj] += (x_list[i]+1)*power_mat[x_list[i], y_list[i], j[jj]-1] * np.power(x, x_list[i]) * np.power(y, y_list[i])
+            dZdx[...,jj] += (x_list[i]+1)*power_mat[x_list[i], y_list[i], j[jj]-2] * np.power(x, x_list[i]) * np.power(y, y_list[i])
     return dZdx
     
 def yder_brug(x, y, power_mat, j):
@@ -127,12 +203,50 @@ def yder_brug(x, y, power_mat, j):
     dim1.append(len(j))
     dZdy = np.zeros(dim1)
     for jj in range(len(j)):
-        x_list, y_list = np.nonzero(power_mat[...,j[jj]-1]) #-1 due to j = 1 in power_mat[...,0]
+        x_list, y_list = np.nonzero(power_mat[...,j[jj]-2]) #-1 due to j = 1 in power_mat[...,0]
         for i in range(len(x_list)):
-            dZdy[...,jj] += (y_list[i]+1)*power_mat[x_list[i], y_list[i], j[jj]-1] * np.power(x, x_list[i]) * np.power(y, y_list[i])
+            dZdy[...,jj] += (y_list[i]+1)*power_mat[x_list[i], y_list[i], j[jj]-2] * np.power(x, x_list[i]) * np.power(y, y_list[i])
     return dZdy
  
+def imshow_interferogram(j_max, a, N, ax = None, f = None, wantcbar = False, piston = 0, cmap = 'bone', wavelength = 632.8e-9, fliplr = False, Z_mat = None, power_mat = None):
+    """ Algorithm to quickly show simulated interferogram,
+    based on highest zernike polynomial (j_max), zernike coefficient vector a and show it using and NxN grid
+    Z_mat and power_mat should be provided for quick plotting
+    """
+    if ax is None:
+        ax = plt.gca()
+    xi, yi = np.linspace(-1, 1, N), np.linspace(-1, 1, N)
+    xi, yi = np.meshgrid(xi, yi)
+    j_range = np.arange(2, j_max+2)
+    if power_mat is None:
+        power_mat = Zernike_power_mat(j_max+2)
+    if Z_mat is None:
+        Z_mat = Zernike_xy(xi, yi, power_mat, j_range)
+    Z = np.sum(a * Z_mat, axis = 2)
+    Z += piston
+    phase = np.mod(Z - np.pi, 2*np.pi) - np.pi
+    Intens = np.cos(phase/2.0)**2
+    if fliplr:
+        Intens = np.fliplr(Intens)
+    interferogram = ax.imshow(np.ma.masked_where(xi**2 + yi**2 >= 1, Intens), vmin = 0, vmax = 1, cmap = cmap, origin = 'lower', interpolation = 'none')
+    if wantcbar:
+        divider = make_axes_locatable(ax)
+        cax = divider.append_axes("right", size="5%", pad=0.1)
+        cbar = plt.colorbar(interferogram, cax=cax)
+    return interferogram
     
+
+def int_for_comp(j_max, a, N, piston, Z_mat, wavelength = 632.8e-9, fliplr = False):
+    """ Returns N x N grid of simulated intensity (normalized to 1) using Z_mat and a. I think j_max is not used"""
+    Z = np.zeros(list(Z_mat.shape)[0:2])
+    Z = np.sum(a * Z_mat, axis = 2)
+    #Z /= wavelength
+    Z += piston  
+    phase = np.mod(Z - np.pi, 2*np.pi) - np.pi
+    Intens = np.cos(phase/2.0)**2
+    if fliplr:
+        Intens = np.fliplr(Intens)
+    return Intens    
 #### Old functions          
 def xderZ(j, x, y):
     """Calculate the x derivative of a Zernike polynomial of FRINGE ordering j according to [1].
@@ -248,16 +362,17 @@ def Zernike_nm(n, m, rho, theta):
     else:
         return np.zeros(shape=rho.shape)
 
-def complex_zernike(j_max, x, y):
+def complex_zernike(n_max, x, y, order):
     """Given the meshgrids for x and y, and given the maximum fringe order, complex zernike retursn
     an (shape(x), j_max) sized matrix with values of the complex Zernike polynomial at the given points"""
     rho, theta = cart2pol(x, y)
     rho2 = 2 * rho**2 - 1
-    j = np.arange(1, j_max+2)
-    n, m = Zernike_j_2_nm(j)
+##    j = max_n_to_j(n_max, order = order)[str(n_max)]
+    j = np.insert(max_n_to_j(n_max, order = order)[str(n_max)], 0, 1)
+    n, m = Zernike_j_2_nm(j, ordering = order)
     nm2 = (n - np.abs(m))/2
     xshape = list(rho.shape)
-    xshape.append(int(j_max)+1)
+    xshape.append(len(j))
     Cnm = np.zeros(xshape, dtype = np.complex_)
     a = np.zeros(len(m))
     b = np.abs(m)
@@ -322,6 +437,9 @@ def plot_zernike(j_max, a, ax= None, wavelength = 632.8e-9, cmap = cm.jet, savef
 
     #fig = plt.figure(figsize = plt.figaspect(1.))
     plotje = ax.plot_surface(xi, yi, Z, cmap = 'jet', norm = norml, linewidth = 0.2)
+    ax.set_xlabel('x')
+    ax.set_ylabel('y')
+    ax.set_zlabel('phi')
     #ax.axis('off')
 ##    divider = make_axes_locatable(ax)
 ##    cax = divider.append_axes("right", size="5%", pad=0.1)
@@ -369,44 +487,4 @@ def plot_interferogram(j_max, a, piston = 0, ax = None, f = None, wantcbar = Fal
         cbar = plt.colorbar(interferogram, cax=cax)
     return interferogram
 
-def imshow_interferogram(j_max, a, N, ax = None, f = None, wantcbar = False, piston = 0, cmap = 'bone', wavelength = 632.8e-9, fliplr = False, **kwargs):
-    if ax is None:
-        ax = plt.gca()
-    xi, yi = np.linspace(-1, 1, N), np.linspace(-1, 1, N)
-    xi, yi = np.meshgrid(xi, yi)
-    j_range = np.arange(2, j_max+2)
-    if 'power_mat' in kwargs:
-        power_mat = kwargs['power_mat']
-    else:
-        power_mat = Zernike_power_mat(j_max+2)
-    if 'Z_mat' in kwargs:
-        Z_mat = kwargs['Z_mat']
-    else:
-        Z_mat = Zernike_xy(xi, yi, power_mat, j_range)
-    Z = np.sum(a * Z_mat, axis = 2)
-    Z += piston
-    phase = np.mod(Z - np.pi, 2*np.pi) - np.pi
-    Intens = np.cos(phase/2.0)**2
-    if fliplr:
-        Intens = np.fliplr(Intens)
-    if 'extent' in kwargs:
-        extent = kwargs['extent']
-        interferogram = ax.imshow(np.ma.masked_where(xi**2 + yi**2 >= 1, Intens), vmin = 0, vmax = 1, cmap = cmap, origin = 'lower', interpolation = 'none', extent = extent)
-    else:
-        interferogram = ax.imshow(np.ma.masked_where(xi**2 + yi**2 >= 1, Intens), vmin = 0, vmax = 1, cmap = cmap, origin = 'lower', interpolation = 'none')
-    if wantcbar:
-        divider = make_axes_locatable(ax)
-        cax = divider.append_axes("right", size="5%", pad=0.1)
-        cbar = plt.colorbar(interferogram, cax=cax)
-    return interferogram
 
-def int_for_comp(j_max, a, N, piston, Z_mat, wavelength = 632.8e-9, fliplr = False):
-    Z = np.zeros(list(Z_mat.shape)[0:2])
-    Z = np.sum(a * Z_mat, axis = 2)
-    #Z /= wavelength
-    Z += piston  
-    phase = np.mod(Z - np.pi, 2*np.pi) - np.pi
-    Intens = np.cos(phase/2.0)**2
-    if fliplr:
-        Intens = np.fliplr(Intens)
-    return Intens

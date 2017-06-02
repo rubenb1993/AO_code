@@ -13,20 +13,6 @@ if "C:\Program Files\Micro-Manager-1.4" not in sys.path:
 import MMCorePy
 import PIL.Image
 
-def filter_positions(inside, *args):
-    """given a certain range of indices which are labeled inside, return an arbitrary number of vectors filtered with those indices"""
-    new_positions = []
-    for arg in args:
-        new_positions.append(np.array(arg)[inside])
-    return new_positions
-
-def filter_nans(*args):
-    """given vectors, filters out the NANs. Assumes that nans appear in the same place"""
-    new_positions = []
-    for arg in args:
-        new_positions.append(arg[~np.isnan(arg)])
-    return new_positions
-
 def set_displacement(u_dm, mirror):
     """linearizes the deformable mirror control.
     u_dm is a vector in the range (-1, 1) with the size (actuators,)
@@ -52,6 +38,9 @@ def set_displacement(u_dm, mirror):
 
 
 def set_up_cameras():
+    """two cameras were used for shack-hartmann sensing and one for interferometry
+    they had different pixel clocks, and could be differentiated by that
+    returns 2 MMCorePy camera objects"""
     cam1=MMCorePy.CMMCore()
     cam1.loadDevice("cam","IDS_uEye","IDS uEye")
     cam1.initializeDevice("cam")
